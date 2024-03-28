@@ -1,22 +1,24 @@
 package projeto;
 
 import java.io.BufferedOutputStream;
+import java.io.EOFException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 
 public class mySNSServer {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         System.out.println("servidor: main");
         mySNSServer server = new mySNSServer();
         server.startServer();
     }
 
-    public void startServer() {
+    public void startServer() throws IOException {
     	ServerSocket sSoc = null; 
     	
         try {
@@ -27,6 +29,7 @@ public class mySNSServer {
                     Socket inSoc = sSoc.accept();
                     ServerThread newServerThread = new ServerThread(inSoc);
                     newServerThread.start();
+                    
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -34,6 +37,7 @@ public class mySNSServer {
         } catch (IOException e) {
             System.err.println("Erro ao iniciar o servidor: " + e.getMessage());
         }
+        //sSoc.close();
     }
     
     class ServerThread extends Thread {
@@ -60,7 +64,7 @@ public class mySNSServer {
                     e1.printStackTrace();
                 }
 
-                if (user != null && !user.isEmpty()) {
+              /*  if (user != null && !user.isEmpty()) {
                     outStream.writeObject(true);
                 } else {
                     outStream.writeObject(false);
@@ -82,17 +86,24 @@ public class mySNSServer {
                     e.printStackTrace();
                 }
 
-                System.out.println("fim do ficheiro");
-
+                System.out.println("fim do ficheiro");*/
+                
             } catch (IOException e) {
                 System.err.println("Erro na comunicação com o cliente: " + e.getMessage());
+                // Se desejar, você pode adicionar detalhes específicos para diferentes tipos de exceções de E/S.
+                if (e instanceof EOFException) {
+                    System.err.println("O cliente encerrou abruptamente a conexão.");
+                } else if (e instanceof SocketException) {
+                    System.err.println("Erro de soquete: " + e.getMessage());
+                }
             } finally {
                 try {
                     socket.close();
+                    System.out.println("Conexão com o cliente encerrada.");
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    System.err.println("Erro ao fechar o socket: " + e.getMessage());
                 }
+            }
             }
         }
     }
-}

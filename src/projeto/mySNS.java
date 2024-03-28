@@ -1,5 +1,6 @@
 package projeto;
-import java.io.*;
+
+import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
@@ -26,25 +27,30 @@ public class mySNS {
             System.out.println("Porto deve ser um número inteiro.");
             return;
         }
-        
 
+        Socket socket = null;
         try {
-            Socket socket = new Socket(hostname, port);
-            System.out.println("Conectado ao servidor: " + hostname + ":" + port);
-            
-            // Print "ok" if the connection is successful
-            System.out.println("ok");
+            System.out.println("Tentando se conectar ao servidor: " + hostname + ":" + port);
+            socket = new Socket(hostname, port);
+            System.out.println("Conexão bem-sucedida ao servidor: " + hostname + ":" + port);
 
             // Aqui você pode implementar a lógica para as outras opções fornecidas na linha de comando.
             // Por enquanto, apenas exibiremos o endereço do servidor.
 
-            socket.close();
-            
-
         } catch (UnknownHostException e) {
-            System.err.println("Endereço do servidor desconhecido: " + hostname);
+            System.err.println("Erro ao conectar ao servidor. Endereço do servidor desconhecido: " + hostname);
         } catch (IOException e) {
             System.err.println("Erro ao conectar ao servidor: " + e.getMessage());
+        } finally {
+            if (socket != null && !socket.isClosed()) {
+                try {
+                    System.out.println("Fechando conexão com o servidor...");
+                    socket.close();
+                    System.out.println("Conexão fechada.");
+                } catch (IOException e) {
+                    System.err.println("Erro ao fechar a conexão: " + e.getMessage());
+                }
+            }
         }
     }
 
