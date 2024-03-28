@@ -56,12 +56,38 @@ public class mySNSServer {
                 String user = null;
                 String passwd = null;
 
-                try {
-                    user = (String) inStream.readObject();
-                    passwd = (String) inStream.readObject();
-                    System.out.println("thread: depois de receber a password e o user");
-                } catch (ClassNotFoundException e1) {
-                    e1.printStackTrace();
+                // Verifica se há objetos disponíveis para leitura antes de tentar lê-los
+                while (inStream.available() > 0) {
+                    try {
+                        user = (String) inStream.readObject();
+                        passwd = (String) inStream.readObject();
+                        System.out.println("thread: depois de receber a password e o user");
+                    } catch (ClassNotFoundException e1) {
+                        e1.printStackTrace();
+                    }/*  if (user != null && !user.isEmpty()) {
+                    outStream.writeObject(true);
+                } else {
+                    outStream.writeObject(false);
+                }
+
+                System.out.println("inicio de ficheiro");
+                try (FileOutputStream outFileStream = new FileOutputStream("ficheiro.pdf");
+                     BufferedOutputStream outFile = new BufferedOutputStream(outFileStream)) {
+
+                    Long fileSize = (Long) inStream.readObject();
+                    byte[] buffer = new byte[1024];
+                    int x;
+                    int temp = fileSize.intValue();
+                    while (temp > 0 && (x = inStream.read(buffer, 0, Math.min(1024, temp))) != -1) {
+                        outFile.write(buffer, 0, x);
+                        temp -= x;
+                    }
+                } catch (ClassNotFoundException e) {
+                    e.printStackTrace();
+                }
+
+                System.out.println("fim do ficheiro");*/
+                
                 }
 
               /*  if (user != null && !user.isEmpty()) {
