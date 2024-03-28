@@ -3,7 +3,7 @@ import java.io.*;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
-public class MySNS {
+public class mySNS {
 
     public static void main(String[] args) throws InterruptedException {
         if (args.length < 2 || !args[0].equals("-a")) {

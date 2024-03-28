@@ -8,16 +8,20 @@ import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-public class MyServer {
+public class mySNSServer {
 
     public static void main(String[] args) {
         System.out.println("servidor: main");
-        MyServer server = new MyServer();
+        mySNSServer server = new mySNSServer();
         server.startServer();
     }
 
     public void startServer() {
-        try (ServerSocket sSoc = new ServerSocket(23456)) {
+    	ServerSocket sSoc = null; 
+    	
+        try {
+        	sSoc = new ServerSocket(23456);{
+        }
             while (true) {
                 try {
                     Socket inSoc = sSoc.accept();
@@ -31,7 +35,7 @@ public class MyServer {
             System.err.println("Erro ao iniciar o servidor: " + e.getMessage());
         }
     }
-
+    
     class ServerThread extends Thread {
 
         private final Socket socket;
