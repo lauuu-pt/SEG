@@ -2,6 +2,7 @@ package projeto;
 
 import java.io.BufferedOutputStream;
 import java.io.EOFException;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -18,12 +19,15 @@ public class mySNSServer {
         server.startServer();
     }
 
-    public void startServer() throws IOException {
+	public void startServer() throws IOException {
     	ServerSocket sSoc = null; 
     	
         try {
-        	sSoc = new ServerSocket(23456);{
-        }
+        	sSoc = new ServerSocket(23456);
+        	} catch (IOException e) {
+    			System.err.println(e.getMessage());
+    			System.exit(-1);
+    		}
             while (true) {
                 try {
                     Socket inSoc = sSoc.accept();
@@ -34,15 +38,13 @@ public class mySNSServer {
                     e.printStackTrace();
                 }
             }
-        } catch (IOException e) {
-            System.err.println("Erro ao iniciar o servidor: " + e.getMessage());
-        }
+        
         //sSoc.close();
     }
     
     class ServerThread extends Thread {
 
-        private final Socket socket;
+        private Socket socket=null;
 
         ServerThread(Socket inSoc) {
             socket = inSoc;
@@ -55,64 +57,63 @@ public class mySNSServer {
 
                 String user = null;
                 String passwd = null;
-
-                // Verifica se há objetos disponíveis para leitura antes de tentar lê-los
-                while (inStream.available() > 0) {
-                    try {
-                        user = (String) inStream.readObject();
-                        passwd = (String) inStream.readObject();
-                        System.out.println("thread: depois de receber a password e o user");
-                    } catch (ClassNotFoundException e1) {
-                        e1.printStackTrace();
-                    }/*  if (user != null && !user.isEmpty()) {
-                    outStream.writeObject(true);
-                } else {
-                    outStream.writeObject(false);
-                }
-
-                System.out.println("inicio de ficheiro");
-                try (FileOutputStream outFileStream = new FileOutputStream("ficheiro.pdf");
-                     BufferedOutputStream outFile = new BufferedOutputStream(outFileStream)) {
-
-                    Long fileSize = (Long) inStream.readObject();
-                    byte[] buffer = new byte[1024];
-                    int x;
-                    int temp = fileSize.intValue();
-                    while (temp > 0 && (x = inStream.read(buffer, 0, Math.min(1024, temp))) != -1) {
-                        outFile.write(buffer, 0, x);
-                        temp -= x;
+                try {
+					user = (String)inStream.readObject();
+					passwd = (String)inStream.readObject();
+					System.out.println("thread: depois de receber a password e o user");
+				}catch (ClassNotFoundException e1) {
+					e1.printStackTrace();
+				}
+                if (user.length() != 0){
+					outStream.writeObject( (Boolean) true);
+				}
+				else {
+					outStream.writeObject( (Boolean) false);
+				}
+                // Create a directory based on the username
+                File userDirectory = new File(user);
+                if (!userDirectory.exists()) {
+                    if (userDirectory.mkdirs()) {
+                        System.out.println("Created directory for user: " + user);
+                    } else {
+                        System.out.println("Failed to create directory for user: " + user);
                     }
-                } catch (ClassNotFoundException e) {
-                    e.printStackTrace();
                 }
 
-                System.out.println("fim do ficheiro");*/
+                // Receive and store files in the user directory
+                try {
+                    while (true) {
+                        System.out.println("Start of file");
+                        Long fileSize = (Long) inStream.readObject();
+                        String filename = (String) inStream.readObject();
+
+                        File outputFile = new File(userDirectory, filename);
+                        try (FileOutputStream outFileStream = new FileOutputStream(outputFile);
+                             BufferedOutputStream outFile = new BufferedOutputStream(outFileStream)) {
+
+                            byte[] buffer = new byte[1024];
+                            int bytesRead;
+                            long remainingBytes = fileSize;
+                            while (remainingBytes > 0 && (bytesRead = inStream.read(buffer, 0, (int) Math.min(buffer.length, remainingBytes))) != -1) {
+                                outFile.write(buffer, 0, bytesRead);
+                                remainingBytes -= bytesRead;
+                            }
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
+                        System.out.println("End of file: " + filename);
+                    }
+                } catch (EOFException e) {
+                    // End of file transfer
+                    System.out.println("Client finished sending files.");
+                } catch (ClassNotFoundException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+
                 
-                }
-
-              /*  if (user != null && !user.isEmpty()) {
-                    outStream.writeObject(true);
-                } else {
-                    outStream.writeObject(false);
-                }
-
-                System.out.println("inicio de ficheiro");
-                try (FileOutputStream outFileStream = new FileOutputStream("ficheiro.pdf");
-                     BufferedOutputStream outFile = new BufferedOutputStream(outFileStream)) {
-
-                    Long fileSize = (Long) inStream.readObject();
-                    byte[] buffer = new byte[1024];
-                    int x;
-                    int temp = fileSize.intValue();
-                    while (temp > 0 && (x = inStream.read(buffer, 0, Math.min(1024, temp))) != -1) {
-                        outFile.write(buffer, 0, x);
-                        temp -= x;
-                    }
-                } catch (ClassNotFoundException e) {
-                    e.printStackTrace();
-                }
-
-                System.out.println("fim do ficheiro");*/
+                
                 
             } catch (IOException e) {
                 System.err.println("Erro na comunicação com o cliente: " + e.getMessage());

@@ -2,16 +2,25 @@ package projeto;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.security.InvalidKeyException;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+
 import javax.crypto.Cipher;
 import javax.crypto.CipherOutputStream;
+import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 
 public class mySNS {
@@ -41,37 +50,24 @@ public class mySNS {
         String doctorUsername = args[3];
         String userUsername = args[5];
 
-        // Verify if the doctor's alias exists in the keystore.medico
-        try {
-            FileInputStream kfileDoctor = new FileInputStream("keystore.medico");
-            KeyStore kstoreDoctor = KeyStore.getInstance("PKCS12");
-            kstoreDoctor.load(kfileDoctor, "123456".toCharArray()); // Provide the correct keystore password
+        
 
-            if (!kstoreDoctor.containsAlias(doctorUsername)) {
-                System.out.println("Doctor username '" + doctorUsername + "' does not exist in the keystore.medico.");
-                return;
-            }
-            System.out.println("Doctor alias verified in keystore.medico.");
-        } catch (Exception e) {
-            System.err.println("Error loading keystore.medico: " + e.getMessage());
+        // Check if the keystore.medico file exists
+        File medicoFile = new File("keystore."+ doctorUsername); // Change variable name from medicoKeystore to doctorUsername
+        if (!medicoFile.exists()) {
+            System.out.println("Keystore do medico " + doctorUsername +" nao existe");
             return;
         }
 
-        // Verify if the user's alias exists in the keystore.utente
-        try {
-            FileInputStream kfileUser = new FileInputStream("keystore.utente");
-            KeyStore kstoreUser = KeyStore.getInstance("PKCS12");
-            kstoreUser.load(kfileUser, "123456".toCharArray()); // Provide the correct keystore password
-
-            if (!kstoreUser.containsAlias(userUsername)) {
-                System.out.println("User username '" + userUsername + "' does not exist in the keystore.utente.");
-                return;
-            }
-            System.out.println("User alias verified in keystore.utente.");
-        } catch (Exception e) {
-            System.err.println("Error loading keystore.utente: " + e.getMessage());
+        // Check if the keystore.utente file exists
+        File utenteFile = new File("keystore."+ userUsername);
+        if (!utenteFile.exists()) {
+            System.out.println("Keystore do utente"+ userUsername +" nao existe.");
             return;
         }
+
+        // Rest of your code using doctorUsername and userUsername
+
 
         // Check for the specified combinations of commands
         if (args.length >= 8) {
@@ -102,17 +98,20 @@ public class mySNS {
             System.out.println("Invalid combination of commands.");
             return;
         }
+    }
 
-        Socket socket = null;
+        /*Socket socket = null;
         try {
             System.out.println("Attempting to connect to the server: " + hostname + ":" + port);
             socket = new Socket(hostname, port);
-            System.out.println("Connection successful to the server: " + hostname + ":" + port);
+            System.out.println("Connection successful to the server: " + hostname + ":" + port);*/
 
             // TODO: Implement logic for other commands provided in the command line arguments
 
-        } catch (UnknownHostException e) {
+        /*} catch (UnknownHostException e) {
             System.err.println("Error connecting to the server. Unknown server address: " + hostname);
+        } catch (SocketException e) { // Catch SocketException separately
+            System.err.println("Error connecting to the server: Connection reset by peer.");
         } catch (IOException e) {
             System.err.println("Error connecting to the server: " + e.getMessage());
         } finally {
@@ -126,12 +125,11 @@ public class mySNS {
                 }
             }
         }
-    }
+    }*/
+    
 
     private static void metodosc(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
-        try {
-            // Connect to the server
-            Socket socket = new Socket(hostname, port);
+        try (Socket socket = new Socket(hostname, port)) {
             System.out.println("Connected to the server.");
 
             // Implement the logic to encrypt and send files to the server
@@ -139,52 +137,17 @@ public class mySNS {
                 // Generate a random AES key
                 KeyGenerator kg = KeyGenerator.getInstance("AES");
                 kg.init(128);
-                SecretKey key = kg.generateKey();
-
-                // Initialize AES cipher
-                Cipher c = Cipher.getInstance("AES");
-                c.init(Cipher.ENCRYPT_MODE, key);
-
-                // Create input and output streams
-                FileInputStream fis = new FileInputStream(filename);
-                FileOutputStream fos = new FileOutputStream(filename + ".cifrado");
-                CipherOutputStream cos = new CipherOutputStream(fos, c);
-
-                // Encrypt the file
-                byte[] buffer = new byte[1024];
-                int bytesRead;
-                while ((bytesRead = fis.read(buffer)) != -1) {
-                    cos.write(buffer, 0, bytesRead);
-                }
-
-                // Close streams
-                fis.close();
-                cos.close();
-
-                System.out.println("File encrypted: " + filename + " -> " + filename + ".cifrado");
-
-                // Save the key to a file
-                saveKeyToFile(key, filename, userUsername);
+                SecretKey aesKey = kg.generateKey();
                 
-                //file 1 é enviado par o server por isso é que não aparece <--------------------------------------------------------------
-                // Transfer the encrypted file to the server
-                FileInputStream encryptedFileInputStream = new FileInputStream(filename + ".cifrado");
-                byte[] fileBytes = encryptedFileInputStream.readAllBytes();
-                encryptedFileInputStream.close();
+                encryptFileWithAES(filename, aesKey);
+                encryptAESKeyWithRSA(aesKey, userUsername, filename);
+                sendFilesToServer(hostname, port, filenames);
 
-                // Send the file bytes to the server
-                ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
-                outputStream.writeObject(fileBytes);
-                outputStream.flush();
-                System.out.println("Encrypted file sent to the server: " + filename + ".cifrado");
 
-                // Clean up temporary files
-                new File(filename + ".cifrado").delete();
-            }
-
-            // Close the socket
-            socket.close();
-            System.out.println("Connection closed.");
+               
+                } 
+            // The socket will be closed automatically at the end of the try-with-resources block
+            System.out.println("Closing connection to the server...");
         } catch (UnknownHostException e) {
             System.err.println("Error connecting to the server. Unknown server address: " + hostname);
         } catch (IOException e) {
@@ -194,20 +157,86 @@ public class mySNS {
         }
     }
 
-    private static void saveKeyToFile(SecretKey key, String filename, String userUsername) {
+
+    private static void encryptAESKeyWithRSA(SecretKey aesKey, String userUsername, String filename) throws FileNotFoundException, IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException {
+    	try (FileOutputStream kos = new FileOutputStream(filename + ".key")) {
+    		FileInputStream kfile = new FileInputStream("keystore."+ userUsername);
+    		KeyStore kstore = KeyStore.getInstance("PKCS12");
+    		kstore.load(kfile, "123456".toCharArray());           //password
+    		Certificate cert = kstore.getCertificate(userUsername);
+    		//alias do utilizador
+    		Cipher c1=Cipher.getInstance("RSA");
+    		c1.init(Cipher.WRAP_MODE,cert);
+    		byte[]keyEncoded=c1.wrap(aesKey);
+
+
+    		
+    		kos.write(keyEncoded);
+    		kos.close();
+    		
+    		
+    	}
+    }
+
+	private static void encryptFileWithAES(String filename, SecretKey aesKey) throws FileNotFoundException, IOException {
+    	 try (FileInputStream fis = new FileInputStream(filename);
+                 FileOutputStream fos = new FileOutputStream(filename + ".cifrado");
+                 CipherOutputStream cos = new CipherOutputStream(fos, getAESCipher(aesKey))) {
+
+                byte[] buffer = new byte[1024];
+                int bytesRead;
+                while ((bytesRead = fis.read(buffer)) != -1) {
+                    cos.write(buffer, 0, bytesRead);
+                }
+                cos.flush(); 
+            }
+            System.out.println("File encrypted: " + filename + " -> " + filename + ".cifrado");
+		}
+    private static Cipher getAESCipher(SecretKey aesKey) throws IOException {
         try {
-            // Create the filename for the key file
-            String keyFilename = filename + ".chave_secreta." + userUsername;
-
-            // Write the key bytes to the key file
-            FileOutputStream fos = new FileOutputStream(keyFilename);
-            fos.write(key.getEncoded());
-            fos.close();
-
-            System.out.println("Key saved to file: " + keyFilename);
-        } catch (IOException e) {
-            System.err.println("Error saving key to file: " + e.getMessage());
+            Cipher c = Cipher.getInstance("AES");
+            c.init(Cipher.ENCRYPT_MODE, aesKey);
+            return c;
+        } catch (Exception e) {
+            throw new IOException("Error initializing AES cipher: " + e.getMessage());
         }
     }
+    private static void sendFilesToServer(String hostname, int port, String[] filenames) {
+        try (Socket socket = new Socket(hostname, port)) {
+            System.out.println("Connected to the server.");
+
+            for (String filename : filenames) {
+                // Send each encrypted file to the server
+                sendFileToServer(filename, socket);
+            }
+
+            System.out.println("All files sent to the server.");
+        } catch (UnknownHostException e) {
+            System.err.println("Error connecting to the server. Unknown server address: " + hostname);
+        } catch (IOException e) {
+            System.err.println("Error connecting to the server: " + e.getMessage());
+        }
+    }
+
+ 
+    private static void sendFileToServer(String filename, Socket socket) {
+        try (FileInputStream fis = new FileInputStream(filename + ".cifrado");
+             ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream())) {
+
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = fis.read(buffer)) != -1) {
+                outStream.write(buffer, 0, bytesRead);
+            }
+            outStream.flush(); // Ensure all data is sent
+
+            System.out.println("File sent to the server: " + filename + ".cifrado");
+        } catch (FileNotFoundException e) {
+            System.err.println("File not found: " + filename + ".cifrado");
+        } catch (IOException e) {
+            System.err.println("Error sending file to the server: " + e.getMessage());
+        }
+    }
+
 
 }
