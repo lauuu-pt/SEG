@@ -1,10 +1,12 @@
-package projeto;
+package projeto.client;
 
+import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.SocketException;
@@ -24,6 +26,8 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 
 public class mySNS {
+
+    private static Socket socket;
 
     public static void main(String[] args) throws InterruptedException {
         if (args.length < 4 || !args[0].equals("-a") || !args[2].equals("-m") || !args[4].equals("-u")) {
@@ -50,112 +54,86 @@ public class mySNS {
         String doctorUsername = args[3];
         String userUsername = args[5];
 
-        
-
         // Check if the keystore.medico file exists
-        File medicoFile = new File("keystore."+ doctorUsername); // Change variable name from medicoKeystore to doctorUsername
+        File medicoFile = new File("keystore." + doctorUsername);
         if (!medicoFile.exists()) {
-            System.out.println("Keystore do medico " + doctorUsername +" nao existe");
+            System.out.println("Keystore do medico " + doctorUsername + " nao existe");
             return;
         }
 
         // Check if the keystore.utente file exists
-        File utenteFile = new File("keystore."+ userUsername);
+        File utenteFile = new File("keystore." + userUsername);
         if (!utenteFile.exists()) {
-            System.out.println("Keystore do utente"+ userUsername +" nao existe.");
+            System.out.println("Keystore do utente" + userUsername + " nao existe.");
             return;
         }
 
-        // Rest of your code using doctorUsername and userUsername
+        try {
+            // Establish socket connection
+            socket = new Socket(hostname, port);
+            System.out.println("Connected to the server.");
 
-
-        // Check for the specified combinations of commands
-        if (args.length >= 8) {
-            String command = args[6];
-            String[] filenames = new String[args.length - 7];
-            System.arraycopy(args, 7, filenames, 0, filenames.length);
-            switch (command) {
-                case "-sc":
-                	metodosc(hostname, port, filenames, doctorUsername, userUsername);
-                    break;
-                case "-sa":
-                    // Handle the logic for command -sa
-                    break;
-                case "-se":
-                    // Handle the logic for command -se
-                    break;
-                default:
-                    System.out.println("Invalid command: " + command);
-            }
-        } else if (args.length >= 6 && args[6].equals("-g")) {
-            if (args.length == 7) {
-                String[] filenames = args[7].substring(1, args[7].length() - 1).split(",");
-                // Handle the logic for command -g
+            // Execute the desired command
+            if (args.length >= 8) {
+                String command = args[6];
+                String[] filenames = new String[args.length - 7];
+                System.arraycopy(args, 7, filenames, 0, filenames.length);
+                switch (command) {
+                    case "-sc":
+                        metodosc(hostname, port, filenames, doctorUsername, userUsername);
+                        break;
+                    case "-sa":
+                        // Handle the logic for command -sa
+                        break;
+                    case "-se":
+                        // Handle the logic for command -se
+                        break;
+                    default:
+                        System.out.println("Invalid command: " + command);
+                }
+            } else if (args.length >= 6 && args[6].equals("-g")) {
+                if (args.length == 7) {
+                    String[] filenames = args[7].substring(1, args[7].length() - 1).split(",");
+                    // Handle the logic for command -g
+                } else {
+                    System.out.println("No filenames provided for command -g.");
+                }
             } else {
-                System.out.println("No filenames provided for command -g.");
+                System.out.println("Invalid combination of commands.");
             }
-        } else {
-            System.out.println("Invalid combination of commands.");
-            return;
+
+            // Close the socket after all operations are done
+            socket.close();
+            System.out.println("Connection closed.");
+        } catch (UnknownHostException e) {
+            System.err.println("Error connecting to the server. Unknown server address: " + hostname);
+        } catch (IOException e) {
+            System.err.println("Error connecting to the server: " + e.getMessage());
         }
     }
 
-        /*Socket socket = null;
-        try {
-            System.out.println("Attempting to connect to the server: " + hostname + ":" + port);
-            socket = new Socket(hostname, port);
-            System.out.println("Connection successful to the server: " + hostname + ":" + port);*/
-
-            // TODO: Implement logic for other commands provided in the command line arguments
-
-        /*} catch (UnknownHostException e) {
-            System.err.println("Error connecting to the server. Unknown server address: " + hostname);
-        } catch (SocketException e) { // Catch SocketException separately
-            System.err.println("Error connecting to the server: Connection reset by peer.");
-        } catch (IOException e) {
-            System.err.println("Error connecting to the server: " + e.getMessage());
-        } finally {
-            if (socket != null && !socket.isClosed()) {
-                try {
-                    System.out.println("Closing connection to the server...");
-                    socket.close();
-                    System.out.println("Connection closed.");
-                } catch (IOException e) {
-                    System.err.println("Error closing the connection: " + e.getMessage());
-                }
-            }
-        }
-    }*/
-    
-
     private static void metodosc(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
-        try (Socket socket = new Socket(hostname, port)) {
-            System.out.println("Connected to the server.");
-
+        try {
             // Implement the logic to encrypt and send files to the server
             for (String filename : filenames) {
                 // Generate a random AES key
                 KeyGenerator kg = KeyGenerator.getInstance("AES");
                 kg.init(128);
                 SecretKey aesKey = kg.generateKey();
-                
+
                 encryptFileWithAES(filename, aesKey);
                 encryptAESKeyWithRSA(aesKey, userUsername, filename);
-                sendFilesToServer(hostname, port, filenames);
-
-
-               
-                } 
-            // The socket will be closed automatically at the end of the try-with-resources block
-            System.out.println("Closing connection to the server...");
-        } catch (UnknownHostException e) {
-            System.err.println("Error connecting to the server. Unknown server address: " + hostname);
-        } catch (IOException e) {
-            System.err.println("Error connecting to the server: " + e.getMessage());
+                
+            }
+            // After encrypting the files, send them to the server
+            sendFilesToServer(filenames);
+        } catch (NoSuchAlgorithmException e) {
+            System.err.println("Error generating AES key: " + e.getMessage());
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
         }
     }
+
 
 
     private static void encryptAESKeyWithRSA(SecretKey aesKey, String userUsername, String filename) throws FileNotFoundException, IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException {
@@ -201,42 +179,46 @@ public class mySNS {
             throw new IOException("Error initializing AES cipher: " + e.getMessage());
         }
     }
-    private static void sendFilesToServer(String hostname, int port, String[] filenames) {
-        try (Socket socket = new Socket(hostname, port)) {
-            System.out.println("Connected to the server.");
+    private static void sendFilesToServer(String[] filenames) {
+        try {
+            ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
 
+            // Send initial data
+            outStream.writeObject("aa");
+            outStream.writeObject("bb");
+
+            // Send each encrypted file to the server
             for (String filename : filenames) {
-                // Send each encrypted file to the server
-                sendFileToServer(filename, socket);
+                // Send file size to the server
+                File myFile = new File(filename);
+                Long fileSize = myFile.length();
+                outStream.writeObject(fileSize);
+
+                // Send file contents to the server
+                try (BufferedInputStream myFileB = new BufferedInputStream(new FileInputStream(filename))) {
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+                    while ((bytesRead = myFileB.read(buffer, 0, 1024)) > 0) {
+                        outStream.write(buffer, 0, bytesRead);
+                    }
+                }
             }
 
-            System.out.println("All files sent to the server.");
-        } catch (UnknownHostException e) {
-            System.err.println("Error connecting to the server. Unknown server address: " + hostname);
-        } catch (IOException e) {
-            System.err.println("Error connecting to the server: " + e.getMessage());
+            // Send end-of-file indicator to the server
+            outStream.writeObject(-1L); // Indicate end of file transfer
+            outStream.flush(); // Flush the stream to ensure all data is sent
+
+            // Wait for acknowledgment from the server
+            ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+            Boolean acknowledgment = (Boolean) inStream.readObject();
+            System.out.println("Server acknowledgment: " + acknowledgment);
+
+            // Close the socket after receiving acknowledgment
+            socket.close();
+            System.out.println("Connection closed.");
+
+        } catch (IOException | ClassNotFoundException e) {
+            System.err.println("Error sending files to the server: " + e.getMessage());
         }
     }
-
- 
-    private static void sendFileToServer(String filename, Socket socket) {
-        try (FileInputStream fis = new FileInputStream(filename + ".cifrado");
-             ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream())) {
-
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = fis.read(buffer)) != -1) {
-                outStream.write(buffer, 0, bytesRead);
-            }
-            outStream.flush(); // Ensure all data is sent
-
-            System.out.println("File sent to the server: " + filename + ".cifrado");
-        } catch (FileNotFoundException e) {
-            System.err.println("File not found: " + filename + ".cifrado");
-        } catch (IOException e) {
-            System.err.println("Error sending file to the server: " + e.getMessage());
-        }
-    }
-
-
-}
+} 

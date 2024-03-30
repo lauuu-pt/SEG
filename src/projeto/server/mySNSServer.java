@@ -1,4 +1,4 @@
-package projeto;
+package projeto.server;
 
 import java.io.BufferedOutputStream;
 import java.io.EOFException;
@@ -15,36 +15,27 @@ public class mySNSServer {
 
     public static void main(String[] args) throws IOException {
         System.out.println("servidor: main");
-        mySNSServer server = new mySNSServer();
+        var server = new mySNSServer();
         server.startServer();
     }
 
-	public void startServer() throws IOException {
-    	ServerSocket sSoc = null; 
-    	
-        try {
-        	sSoc = new ServerSocket(23456);
-        	} catch (IOException e) {
-    			System.err.println(e.getMessage());
-    			System.exit(-1);
-    		}
+    public void startServer() throws IOException {
+        try (var sSoc = new ServerSocket(23456)) {
             while (true) {
                 try {
-                    Socket inSoc = sSoc.accept();
-                    ServerThread newServerThread = new ServerThread(inSoc);
+                    var inSoc = sSoc.accept();
+                    var newServerThread = new ServerThread(inSoc);
                     newServerThread.start();
-                    
+
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
-        
-        //sSoc.close();
+        }
     }
-    
     class ServerThread extends Thread {
 
-        private Socket socket=null;
+        private Socket socket;
 
         ServerThread(Socket inSoc) {
             socket = inSoc;
@@ -52,26 +43,22 @@ public class mySNSServer {
         }
 
         public void run() {
-            try (ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-                 ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream())) {
+            try (var outStream = new ObjectOutputStream(socket.getOutputStream());
+                 var inStream = new ObjectInputStream(socket.getInputStream())) {
 
                 String user = null;
                 String passwd = null;
                 try {
-					user = (String)inStream.readObject();
-					passwd = (String)inStream.readObject();
-					System.out.println("thread: depois de receber a password e o user");
-				}catch (ClassNotFoundException e1) {
-					e1.printStackTrace();
-				}
-                if (user.length() != 0){
-					outStream.writeObject( (Boolean) true);
-				}
-				else {
-					outStream.writeObject( (Boolean) false);
-				}
+                    user = (String) inStream.readObject();
+                    passwd = (String) inStream.readObject();
+                    System.out.println("Thread: depois de receber a password e o user");
+                } catch (ClassNotFoundException e1) {
+                    e1.printStackTrace();
+                }
+                outStream.writeObject(true); // Sending acknowledgment to the client
+
                 // Create a directory based on the username
-                File userDirectory = new File(user);
+                var userDirectory = new File(user);
                 if (!userDirectory.exists()) {
                     if (userDirectory.mkdirs()) {
                         System.out.println("Created directory for user: " + user);
@@ -80,6 +67,8 @@ public class mySNSServer {
                     }
                 }
 
+                boolean allFilesReceived = true; // Track if all files were received successfully
+
                 // Receive and store files in the user directory
                 try {
                     while (true) {
@@ -87,9 +76,14 @@ public class mySNSServer {
                         Long fileSize = (Long) inStream.readObject();
                         String filename = (String) inStream.readObject();
 
-                        File outputFile = new File(userDirectory, filename);
-                        try (FileOutputStream outFileStream = new FileOutputStream(outputFile);
-                             BufferedOutputStream outFile = new BufferedOutputStream(outFileStream)) {
+                        if (fileSize == -1) { // End of file transfer
+                            System.out.println("Client finished sending files.");
+                            break;
+                        }
+
+                        var outputFile = new File(userDirectory, filename);
+                        try (var outFileStream = new FileOutputStream(outputFile);
+                             var outFile = new BufferedOutputStream(outFileStream)) {
 
                             byte[] buffer = new byte[1024];
                             int bytesRead;
@@ -100,21 +94,24 @@ public class mySNSServer {
                             }
                         } catch (IOException e) {
                             e.printStackTrace();
+                            allFilesReceived = false; // Mark that not all files were received successfully
                         }
 
                         System.out.println("End of file: " + filename);
                     }
                 } catch (EOFException e) {
-                    // End of file transfer
-                    System.out.println("Client finished sending files.");
+                    // Client disconnected prematurely
+                    System.err.println("Client disconnected before all files were received.");
+                    allFilesReceived = false; // Mark that not all files were received successfully
                 } catch (ClassNotFoundException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
+                    e1.printStackTrace();
+                    allFilesReceived = false; // Mark that not all files were received successfully
+                }
 
-                
-                
-                
+                // Send acknowledgment based on the status of file reception
+                outStream.writeObject(allFilesReceived); // Sending acknowledgment to the client
+                System.out.println("Server acknowledges successful file transfer: " + allFilesReceived);
+
             } catch (IOException e) {
                 System.err.println("Erro na comunicação com o cliente: " + e.getMessage());
                 // Se desejar, você pode adicionar detalhes específicos para diferentes tipos de exceções de E/S.
@@ -131,6 +128,8 @@ public class mySNSServer {
                     System.err.println("Erro ao fechar o socket: " + e.getMessage());
                 }
             }
-            }
         }
+
     }
+
+}
