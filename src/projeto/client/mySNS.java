@@ -30,7 +30,7 @@ public class mySNS {
     private static Socket socket;
 
     public static void main(String[] args) throws InterruptedException {
-        if (args.length < 4 || !args[0].equals("-a") || !args[2].equals("-m") || !args[4].equals("-u")) {
+        if (args.length < 6 || !args[0].equals("-a") ) {
             System.out.println("Usage: java mySNS -a <serverAddress> -m <doctorUsername> -u <userUsername> [-sc <filenames>] [-sa <filenames>] [-se <filenames>] [-g <filenames>]");
             return;
         }
@@ -51,36 +51,60 @@ public class mySNS {
             return;
         }
 
-        String doctorUsername = args[3];
-        String userUsername = args[5];
-
-        // Check if the keystore.medico file exists
-        File medicoFile = new File("keystore." + doctorUsername);
-        if (!medicoFile.exists()) {
-            System.out.println("Keystore do medico " + doctorUsername + " nao existe");
-            return;
-        }
-
-        // Check if the keystore.utente file exists
-        File utenteFile = new File("keystore." + userUsername);
-        if (!utenteFile.exists()) {
-            System.out.println("Keystore do utente" + userUsername + " nao existe.");
-            return;
-        }
+        
 
         try {
             // Establish socket connection
             socket = new Socket(hostname, port);
             System.out.println("Connected to the server.");
+            if (args.length >= 6 && args[4].equals("-g")) {
+                System.out.println("Vale");
+                if (args.length > 6) {
+                    String[] filenames = new String[args.length - 5];
+                    System.arraycopy(args, 5, filenames, 0, filenames.length);
+                    //getFilesFromServer(filenames, userUsername);
+                    for (String filename : filenames) {
+                        System.out.println("Filename: " + filename);
+                    }
+                } else if (args.length == 6) {
+                    String filename = args[5];
+                    System.out.println("Filename: " + filename);
+                    //getFilesFromServer(new String[] { filename }, userUsername);
+                } else {
+                    System.out.println("No filenames provided.");
+                }
+            }
+
+
+
+
 
             // Execute the desired command
-            if (args.length >= 8) {
+            
+             else if (args.length >= 8) {
+            	 String doctorUsername = args[3];
+                 String userUsername = args[5];
+
+                 // Check if the keystore.medico file exists
+                 File medicoFile = new File("keystore." + doctorUsername);
+                 if (!medicoFile.exists()) {
+                     System.out.println("Keystore do medico " + doctorUsername + " nao existe");
+                     return;
+                 }
+
+                 // Check if the keystore.utente file exists
+                 File utenteFile = new File("keystore." + userUsername);
+                 if (!utenteFile.exists()) {
+                     System.out.println("Keystore do utente" + userUsername + " nao existe.");
+                     return;
+                 }
                 String command = args[6];
                 String[] filenames = new String[args.length - 7];
                 System.arraycopy(args, 7, filenames, 0, filenames.length);
                 switch (command) {
                     case "-sc":
                         metodosc(hostname, port, filenames, doctorUsername, userUsername);
+                        deleteFiles(filenames, userUsername);
                         break;
                     case "-sa":
                         // Handle the logic for command -sa
@@ -91,20 +115,14 @@ public class mySNS {
                     default:
                         System.out.println("Invalid command: " + command);
                 }
-            } else if (args.length >= 6 && args[6].equals("-g")) {
-                if (args.length == 7) {
-                    String[] filenames = args[7].substring(1, args[7].length() - 1).split(",");
-                    // Handle the logic for command -g
-                } else {
-                    System.out.println("No filenames provided for command -g.");
-                }
             } else {
-                System.out.println("Invalid combination of commands.");
+                System.out.println("Invalid command or combination of commands.");
             }
 
+
             // Close the socket after all operations are done
-            socket.close();
-            System.out.println("Connection closed.");
+            // socket.close();
+            // System.out.println("Connection closed.");
         } catch (UnknownHostException e) {
             System.err.println("Error connecting to the server. Unknown server address: " + hostname);
         } catch (IOException e) {
@@ -112,7 +130,23 @@ public class mySNS {
         }
     }
 
-    private static void metodosc(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
+    private static void deleteFiles(String[] filenames,String userUsername) {
+    	 for (String filename : filenames) {
+    	        File cifradoFile = new File(filename + ".cifrado");
+    	        File keyFile = new File(filename + ".chave_secreta." + userUsername);
+
+    	        if (cifradoFile.exists()) {
+    	            cifradoFile.delete();
+    	            
+    	        }
+    	        if (keyFile.exists()) {
+    	            keyFile.delete();
+    	            
+    	        }
+    	    }
+	}
+
+	private static void metodosc(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
         try {
             // Implement the logic to encrypt and send files to the server
             for (String filename : filenames) {
@@ -123,10 +157,10 @@ public class mySNS {
 
                 encryptFileWithAES(filename, aesKey);
                 encryptAESKeyWithRSA(aesKey, userUsername, filename);
-                
+
             }
             // After encrypting the files, send them to the server
-            sendFilesToServer(filenames);
+            sendFilesToServer(filenames, userUsername);
         } catch (NoSuchAlgorithmException e) {
             System.err.println("Error generating AES key: " + e.getMessage());
         } catch (Exception e) {
@@ -134,42 +168,38 @@ public class mySNS {
         }
     }
 
-
-
     private static void encryptAESKeyWithRSA(SecretKey aesKey, String userUsername, String filename) throws FileNotFoundException, IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException {
-    	try (FileOutputStream kos = new FileOutputStream(filename + ".key")) {
-    		FileInputStream kfile = new FileInputStream("keystore."+ userUsername);
-    		KeyStore kstore = KeyStore.getInstance("PKCS12");
-    		kstore.load(kfile, "123456".toCharArray());           //password
-    		Certificate cert = kstore.getCertificate(userUsername);
-    		//alias do utilizador
-    		Cipher c1=Cipher.getInstance("RSA");
-    		c1.init(Cipher.WRAP_MODE,cert);
-    		byte[]keyEncoded=c1.wrap(aesKey);
+        try (FileOutputStream kos = new FileOutputStream(filename + ".chave_secreta." + userUsername)) {
+            FileInputStream kfile = new FileInputStream("keystore." + userUsername);
+            KeyStore kstore = KeyStore.getInstance("PKCS12");
+            kstore.load(kfile, "123456".toCharArray()); // password
+            Certificate cert = kstore.getCertificate(userUsername);
+            // alias do utilizador
+            Cipher c1 = Cipher.getInstance("RSA");
+            c1.init(Cipher.WRAP_MODE, cert);
+            byte[] keyEncoded = c1.wrap(aesKey);
 
+            kos.write(keyEncoded);
+            kos.close();
 
-    		
-    		kos.write(keyEncoded);
-    		kos.close();
-    		
-    		
-    	}
+        }
     }
 
-	private static void encryptFileWithAES(String filename, SecretKey aesKey) throws FileNotFoundException, IOException {
-    	 try (FileInputStream fis = new FileInputStream(filename);
-                 FileOutputStream fos = new FileOutputStream(filename + ".cifrado");
-                 CipherOutputStream cos = new CipherOutputStream(fos, getAESCipher(aesKey))) {
+    private static void encryptFileWithAES(String filename, SecretKey aesKey) throws FileNotFoundException, IOException {
+        try (FileInputStream fis = new FileInputStream(filename);
+             FileOutputStream fos = new FileOutputStream(filename + ".cifrado");
+             CipherOutputStream cos = new CipherOutputStream(fos, getAESCipher(aesKey))) {
 
-                byte[] buffer = new byte[1024];
-                int bytesRead;
-                while ((bytesRead = fis.read(buffer)) != -1) {
-                    cos.write(buffer, 0, bytesRead);
-                }
-                cos.flush(); 
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = fis.read(buffer)) != -1) {
+                cos.write(buffer, 0, bytesRead);
             }
-            System.out.println("File encrypted: " + filename + " -> " + filename + ".cifrado");
-		}
+            cos.flush();
+        }
+        System.out.println("File encrypted: " + filename + " -> " + filename + ".cifrado");
+    }
+
     private static Cipher getAESCipher(SecretKey aesKey) throws IOException {
         try {
             Cipher c = Cipher.getInstance("AES");
@@ -179,26 +209,39 @@ public class mySNS {
             throw new IOException("Error initializing AES cipher: " + e.getMessage());
         }
     }
-    private static void sendFilesToServer(String[] filenames) {
+
+    private static void sendFilesToServer(String[] filenames, String userUsername) {
         try {
             ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
 
             // Send initial data
-            outStream.writeObject("aa");
+            outStream.writeObject(userUsername);
             outStream.writeObject("bb");
 
             // Send each encrypted file to the server
             for (String filename : filenames) {
-                // Send file size to the server
-                File myFile = new File(filename);
-                Long fileSize = myFile.length();
-                outStream.writeObject(fileSize);
-
-                // Send file contents to the server
-                try (BufferedInputStream myFileB = new BufferedInputStream(new FileInputStream(filename))) {
+                // Send .cifrado file
+                File cifradoFile = new File(filename + ".cifrado");
+                Long fileSize = cifradoFile.length();
+                outStream.writeObject(fileSize); // Send file size to the server
+                outStream.writeObject(filename + ".cifrado"); // Send file name to the server
+                try (BufferedInputStream cifradoFileB = new BufferedInputStream(new FileInputStream(cifradoFile))) {
                     byte[] buffer = new byte[1024];
                     int bytesRead;
-                    while ((bytesRead = myFileB.read(buffer, 0, 1024)) > 0) {
+                    while ((bytesRead = cifradoFileB.read(buffer, 0, 1024)) > 0) {
+                        outStream.write(buffer, 0, bytesRead);
+                    }
+                }
+
+                // Send .key file
+                File keyFile = new File(filename + ".chave_secreta." + userUsername);
+                fileSize = keyFile.length();
+                outStream.writeObject(fileSize); // Send file size to the server
+                outStream.writeObject(filename + ".chave_secreta." + userUsername); // Send file name to the server
+                try (BufferedInputStream keyFileB = new BufferedInputStream(new FileInputStream(keyFile))) {
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+                    while ((bytesRead = keyFileB.read(buffer, 0, 1024)) > 0) {
                         outStream.write(buffer, 0, bytesRead);
                     }
                 }
@@ -221,4 +264,5 @@ public class mySNS {
             System.err.println("Error sending files to the server: " + e.getMessage());
         }
     }
-} 
+
+}

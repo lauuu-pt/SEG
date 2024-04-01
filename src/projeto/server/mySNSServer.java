@@ -1,5 +1,4 @@
 package projeto.server;
-
 import java.io.BufferedOutputStream;
 import java.io.EOFException;
 import java.io.File;
@@ -14,7 +13,7 @@ import java.net.SocketException;
 public class mySNSServer {
 
     public static void main(String[] args) throws IOException {
-        System.out.println("servidor: main");
+        System.out.println("Servidor: main");
         var server = new mySNSServer();
         server.startServer();
     }
@@ -26,20 +25,19 @@ public class mySNSServer {
                     var inSoc = sSoc.accept();
                     var newServerThread = new ServerThread(inSoc);
                     newServerThread.start();
-
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
         }
     }
-    class ServerThread extends Thread {
 
+    class ServerThread extends Thread {
         private Socket socket;
 
         ServerThread(Socket inSoc) {
             socket = inSoc;
-            System.out.println("thread do server para cada cliente");
+            System.out.println("Thread do servidor para cada cliente");
         }
 
         public void run() {
@@ -51,15 +49,20 @@ public class mySNSServer {
                 try {
                     user = (String) inStream.readObject();
                     passwd = (String) inStream.readObject();
-                    System.out.println("Thread: depois de receber a password e o user");
+                    System.out.println("Thread: depois de receber a senha e o usuário");
                 } catch (ClassNotFoundException e1) {
                     e1.printStackTrace();
                 }
                 outStream.writeObject(true); // Sending acknowledgment to the client
 
                 // Create a directory based on the username
-                var userDirectory = new File(user);
+                var userDirectory = new File("/home/aluno-di/eclipse-workspace/SEG/src/projeto/server", user); // Assuming "user_files" is the parent directory
+                System.out.println("User directory path: " + userDirectory.getAbsolutePath());
+
                 if (!userDirectory.exists()) {
+                	System.out.println("User directory path: " + userDirectory.getAbsolutePath());
+
+                	System.out.println("wwwwwwwwwwwwwwwwwwwwwww");
                     if (userDirectory.mkdirs()) {
                         System.out.println("Created directory for user: " + user);
                     } else {
@@ -72,19 +75,16 @@ public class mySNSServer {
                 // Receive and store files in the user directory
                 try {
                     while (true) {
-                        System.out.println("Start of file");
                         Long fileSize = (Long) inStream.readObject();
-                        String filename = (String) inStream.readObject();
-
                         if (fileSize == -1) { // End of file transfer
                             System.out.println("Client finished sending files.");
                             break;
                         }
 
+                        String filename = (String) inStream.readObject();
                         var outputFile = new File(userDirectory, filename);
                         try (var outFileStream = new FileOutputStream(outputFile);
                              var outFile = new BufferedOutputStream(outFileStream)) {
-
                             byte[] buffer = new byte[1024];
                             int bytesRead;
                             long remainingBytes = fileSize;
@@ -114,7 +114,6 @@ public class mySNSServer {
 
             } catch (IOException e) {
                 System.err.println("Erro na comunicação com o cliente: " + e.getMessage());
-                // Se desejar, você pode adicionar detalhes específicos para diferentes tipos de exceções de E/S.
                 if (e instanceof EOFException) {
                     System.err.println("O cliente encerrou abruptamente a conexão.");
                 } else if (e instanceof SocketException) {
@@ -129,7 +128,5 @@ public class mySNSServer {
                 }
             }
         }
-
     }
-
 }
