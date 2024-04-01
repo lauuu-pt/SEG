@@ -17,6 +17,8 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherOutputStream;
@@ -57,6 +59,7 @@ public class mySNS {
             // Establish socket connection
             socket = new Socket(hostname, port);
             System.out.println("Connected to the server.");
+         
             if (args.length >= 6 && args[4].equals("-g")) {
                 System.out.println("Vale");
                 if (args.length > 6) {
@@ -75,7 +78,7 @@ public class mySNS {
                 }
             }
 
-
+            
 
 
 
@@ -98,6 +101,10 @@ public class mySNS {
                      System.out.println("Keystore do utente" + userUsername + " nao existe.");
                      return;
                  }
+                 
+                 
+                 
+                 
                 String command = args[6];
                 String[] filenames = new String[args.length - 7];
                 System.arraycopy(args, 7, filenames, 0, filenames.length);
@@ -146,10 +153,32 @@ public class mySNS {
     	    }
 	}
 
-	private static void metodosc(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
+    private static void metodosc(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
+        List<String> encryptedFiles = new ArrayList<>();
         try {
-            // Implement the logic to encrypt and send files to the server
             for (String filename : filenames) {
+                File file = new File(filename);
+                if (!file.exists()) {
+                    System.out.println("File " + filename + " does not exist. Skipping...");
+                    continue; // Move to the next filename
+                }
+
+                // Check if the .cifrado file already exists on the server
+                File cifradoFile = new File(filename + ".cifrado");
+                if (cifradoFile.exists()) {
+                    System.out.println("File " + cifradoFile.getName() + " already exists on the server. Skipping...");
+                    continue; // Move to the next filename
+                }
+
+                // Check if the .chave_secreta.userUsername file already exists on the server
+                File keyFile = new File(filename + ".chave_secreta." + userUsername);
+                if (keyFile.exists()) {
+                    System.out.println("File " + keyFile.getName() + " already exists on the server. Skipping...");
+                    continue; // Move to the next filename
+                }
+
+                // Implement the logic to encrypt and send files to the server
+
                 // Generate a random AES key
                 KeyGenerator kg = KeyGenerator.getInstance("AES");
                 kg.init(128);
@@ -157,16 +186,20 @@ public class mySNS {
 
                 encryptFileWithAES(filename, aesKey);
                 encryptAESKeyWithRSA(aesKey, userUsername, filename);
-
+                // Store the encrypted filename for sending
+                encryptedFiles.add(filename);
             }
-            // After encrypting the files, send them to the server
-            sendFilesToServer(filenames, userUsername);
+
+            // After encrypting the files, send only the encrypted files to the server
+            sendFilesToServer(encryptedFiles.toArray(new String[0]), userUsername);
+
         } catch (NoSuchAlgorithmException e) {
             System.err.println("Error generating AES key: " + e.getMessage());
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
         }
     }
+
 
     private static void encryptAESKeyWithRSA(SecretKey aesKey, String userUsername, String filename) throws FileNotFoundException, IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException {
         try (FileOutputStream kos = new FileOutputStream(filename + ".chave_secreta." + userUsername)) {
@@ -213,18 +246,23 @@ public class mySNS {
     private static void sendFilesToServer(String[] filenames, String userUsername) {
         try {
             ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-
+            ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+            
             // Send initial data
             outStream.writeObject(userUsername);
             outStream.writeObject("bb");
-
-            // Send each encrypted file to the server
+            
+         // Send each encrypted file to the server
             for (String filename : filenames) {
                 // Send .cifrado file
                 File cifradoFile = new File(filename + ".cifrado");
                 Long fileSize = cifradoFile.length();
                 outStream.writeObject(fileSize); // Send file size to the server
                 outStream.writeObject(filename + ".cifrado"); // Send file name to the server
+                
+             
+
+                
                 try (BufferedInputStream cifradoFileB = new BufferedInputStream(new FileInputStream(cifradoFile))) {
                     byte[] buffer = new byte[1024];
                     int bytesRead;
@@ -246,15 +284,17 @@ public class mySNS {
                     }
                 }
             }
-
             // Send end-of-file indicator to the server
             outStream.writeObject(-1L); // Indicate end of file transfer
             outStream.flush(); // Flush the stream to ensure all data is sent
 
             // Wait for acknowledgment from the server
-            ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
             Boolean acknowledgment = (Boolean) inStream.readObject();
             System.out.println("Server acknowledgment: " + acknowledgment);
+
+            // Close the input and output streams
+            inStream.close();
+            outStream.close();
 
             // Close the socket after receiving acknowledgment
             socket.close();

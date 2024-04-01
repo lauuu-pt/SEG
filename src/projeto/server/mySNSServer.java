@@ -9,6 +9,8 @@ import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.HashSet;
+import java.util.Set;
 
 public class mySNSServer {
 
@@ -74,31 +76,37 @@ public class mySNSServer {
 
                 // Receive and store files in the user directory
                 try {
-                    while (true) {
-                        Long fileSize = (Long) inStream.readObject();
-                        if (fileSize == -1) { // End of file transfer
-                            System.out.println("Client finished sending files.");
-                            break;
-                        }
+                	
+                	while (true) {
+                	    Long fileSize = (Long) inStream.readObject();
+                	    if (fileSize == -1) { // End of file transfer
+                	        System.out.println("Client finished sending files.");
+                	        break;
+                	    }
+                	    
+                	    String filename = (String) inStream.readObject();
+                	    
+                	
+                	    
+                	    var outputFile = new File(userDirectory, filename);
+                	    try (var outFileStream = new FileOutputStream(outputFile);
+                	         var outFile = new BufferedOutputStream(outFileStream)) {
+                	        byte[] buffer = new byte[1024];
+                	        int bytesRead;
+                	        long remainingBytes = fileSize;
+                	        while (remainingBytes > 0 && (bytesRead = inStream.read(buffer, 0, (int) Math.min(buffer.length, remainingBytes))) != -1) {
+                	            outFile.write(buffer, 0, bytesRead);
+                	            remainingBytes -= bytesRead;
+                	        }
+                	    } catch (IOException e) {
+                	        e.printStackTrace();
+                	        allFilesReceived = false; // Mark that not all files were received successfully
+                	    }
 
-                        String filename = (String) inStream.readObject();
-                        var outputFile = new File(userDirectory, filename);
-                        try (var outFileStream = new FileOutputStream(outputFile);
-                             var outFile = new BufferedOutputStream(outFileStream)) {
-                            byte[] buffer = new byte[1024];
-                            int bytesRead;
-                            long remainingBytes = fileSize;
-                            while (remainingBytes > 0 && (bytesRead = inStream.read(buffer, 0, (int) Math.min(buffer.length, remainingBytes))) != -1) {
-                                outFile.write(buffer, 0, bytesRead);
-                                remainingBytes -= bytesRead;
-                            }
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                            allFilesReceived = false; // Mark that not all files were received successfully
-                        }
+                	    System.out.println("End of file: " + filename);
+                	}
 
-                        System.out.println("End of file: " + filename);
-                    }
+
                 } catch (EOFException e) {
                     // Client disconnected prematurely
                     System.err.println("Client disconnected before all files were received.");
