@@ -31,7 +31,7 @@ public class mySNS {
 
     private static Socket socket;
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, ClassNotFoundException {
         if (args.length < 6 || !args[0].equals("-a") ) {
             System.out.println("Usage: java mySNS -a <serverAddress> -m <doctorUsername> -u <userUsername> [-sc <filenames>] [-sa <filenames>] [-se <filenames>] [-g <filenames>]");
             return;
@@ -59,20 +59,22 @@ public class mySNS {
             // Establish socket connection
             socket = new Socket(hostname, port);
             System.out.println("Connected to the server.");
-         
+            String userUsername = args[3];
+           
             if (args.length >= 6 && args[4].equals("-g")) {
                 System.out.println("Vale");
                 if (args.length > 6) {
                     String[] filenames = new String[args.length - 5];
                     System.arraycopy(args, 5, filenames, 0, filenames.length);
-                    //getFilesFromServer(filenames, userUsername);
+                    
                     for (String filename : filenames) {
                         System.out.println("Filename: " + filename);
+                        getFilesFromServer(new String[] { filename }, userUsername);
                     }
                 } else if (args.length == 6) {
                     String filename = args[5];
-                    System.out.println("Filename: " + filename);
-                    //getFilesFromServer(new String[] { filename }, userUsername);
+                    System.out.println("Filename1: " + filename);
+                    getFilesFromServer(new String[] { filename }, userUsername);
                 } else {
                     System.out.println("No filenames provided.");
                 }
@@ -86,7 +88,7 @@ public class mySNS {
             
              else if (args.length >= 8) {
             	 String doctorUsername = args[3];
-                 String userUsername = args[5];
+                 String userUsernamee = args[5];
 
                  // Check if the keystore.medico file exists
                  File medicoFile = new File("keystore." + doctorUsername);
@@ -96,9 +98,9 @@ public class mySNS {
                  }
 
                  // Check if the keystore.utente file exists
-                 File utenteFile = new File("keystore." + userUsername);
+                 File utenteFile = new File("keystore." + userUsernamee);
                  if (!utenteFile.exists()) {
-                     System.out.println("Keystore do utente" + userUsername + " nao existe.");
+                     System.out.println("Keystore do utente" + userUsernamee + " nao existe.");
                      return;
                  }
                  
@@ -110,8 +112,8 @@ public class mySNS {
                 System.arraycopy(args, 7, filenames, 0, filenames.length);
                 switch (command) {
                     case "-sc":
-                        metodosc(hostname, port, filenames, doctorUsername, userUsername);
-                        deleteFiles(filenames, userUsername);
+                        metodosc(hostname, port, filenames, doctorUsername, userUsernamee);
+                        deleteFiles(filenames, userUsernamee);
                         break;
                     case "-sa":
                         // Handle the logic for command -sa
@@ -304,5 +306,49 @@ public class mySNS {
             System.err.println("Error sending files to the server: " + e.getMessage());
         }
     }
+    private static void getFilesFromServer(String[] filenames, String userUsername) {
+        try (ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+             ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream())) {
 
+            // Send the command to the server
+            outStream.writeObject("-g");
+
+            for (String filename : filenames) {
+                // Send the filename to the server
+                outStream.writeObject(filename);
+
+                // Receive acknowledgment from the server
+                boolean acknowledgment = (boolean) inStream.readObject();
+                if (!acknowledgment) {
+                    System.out.println("Server failed to retrieve file: " + filename);
+                    continue;
+                }
+
+                // Receive the file size from the server
+                long fileSize = inStream.readLong();
+                if (fileSize == -1) {
+                    System.out.println("File " + filename + " not found on the server.");
+                    continue;
+                }
+                System.out.println("EEEEEEEEEEEEEE");
+                // Receive the encrypted file
+                if (fileSize > 0) {
+                    try (FileOutputStream fileOutputStream = new FileOutputStream(filename + ".cifrado")) {
+                        byte[] buffer = new byte[1024];
+                        int bytesRead;
+                        long remainingBytes = fileSize;
+                        while (remainingBytes > 0 && (bytesRead = inStream.read(buffer, 0, (int) Math.min(buffer.length, remainingBytes))) != -1) {
+                            fileOutputStream.write(buffer, 0, bytesRead);
+                            remainingBytes -= bytesRead;
+                        }
+                        System.out.println("Encrypted file " + filename + " retrieved from the server.");
+                    }
+                } else {
+                    System.out.println("File size is 0 for file: " + filename);
+                }
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            System.err.println("Error retrieving files from the server: " + e.getMessage());
+        }
+    }
 }
