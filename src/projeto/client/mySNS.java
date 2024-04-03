@@ -398,7 +398,7 @@ public class mySNS {
     }
     
     //responsável por solicitar arquivos específicos do servidor e recebê-los
-    private static void getFilesFromServer(String[] filenames, String userUsername) {
+    private static void getFilesFromServer(String[] filenames, String userUsername) throws ClassNotFoundException {
         try (ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
              ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream())) {
 
@@ -409,16 +409,14 @@ public class mySNS {
             for (String filename : filenames) {
                 // Send the filename to the server
                 outStream.writeObject(filename);
-
-                // Receive acknowledgment from the server
-                boolean acknowledgment = (boolean) inStream.readObject();
-                if (!acknowledgment) {
-                    System.out.println("Server failed to retrieve file: " + filename);
-                    continue;
-                }
+                System.out.println("send file name");
+             // Receive the name file from the server
+                String name = (String) inStream.readObject();
+                System.out.println("receive filename");
 
                 // Receive the file size from the server
-                long fileSize = inStream.readLong();
+                long fileSize = (long) inStream.readObject();
+                System.out.println("receive filesize");
                 if (fileSize == -1) {
                     System.out.println("File " + filename + " not found on the server.");
                     continue;
@@ -426,7 +424,7 @@ public class mySNS {
                 System.out.println("EEEEEEEEEEEEEE");
                 // Receive the encrypted file
                 if (fileSize > 0) {
-                    try (FileOutputStream fileOutputStream = new FileOutputStream(filename + ".cifrado")) {
+                    try (FileOutputStream fileOutputStream = new FileOutputStream(name)) {
                         byte[] buffer = new byte[1024];
                         int bytesRead;
                         long remainingBytes = fileSize;
@@ -434,13 +432,13 @@ public class mySNS {
                             fileOutputStream.write(buffer, 0, bytesRead);
                             remainingBytes -= bytesRead;
                         }
-                        System.out.println("Encrypted file " + filename + " retrieved from the server.");
+                        System.out.println("Encrypted file " + name + " retrieved from the server.");
                     }
                 } else {
-                    System.out.println("File size is 0 for file: " + filename);
+                    System.out.println("File size is 0 for file: " + name);
                 }
             }
-        } catch (IOException | ClassNotFoundException e) {
+        } catch (IOException e) {
             System.err.println("Error retrieving files from the server: " + e.getMessage());
         }
     }
