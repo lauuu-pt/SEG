@@ -340,7 +340,9 @@ public class mySNS {
             
             // Send initial data
             outStream.writeObject(userUsername);
-            outStream.writeObject("bb");
+            
+            outStream.writeObject(false);
+           
             
          // Send each encrypted file to the server
             for (String filename : filenames) {
@@ -401,7 +403,8 @@ public class mySNS {
              ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream())) {
 
             // Send the command to the server
-            outStream.writeObject("-g");
+        	outStream.writeObject(userUsername);   
+        	outStream.writeObject(true);
 
             for (String filename : filenames) {
                 // Send the filename to the server
