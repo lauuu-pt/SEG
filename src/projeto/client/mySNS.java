@@ -33,7 +33,7 @@ public class mySNS {
 
     public static void main(String[] args) throws InterruptedException, ClassNotFoundException {
         if (args.length < 6 || !args[0].equals("-a") ) {
-            System.out.println("Usage: java mySNS -a <serverAddress> -m <doctorUsername> -u <userUsername> [-sc <filenames>] [-sa <filenames>] [-se <filenames>] [-g <filenames>]");
+            System.out.println("Usage: java mySNS -a <serverAddress> -m <doctorUsername> -u <userUsername> [-sc <filenames>] [-sa <filenames>] [-se <filenames>] [-g <filenames>]\nou\nUsage: java mySNS -a <serverAddress> -u <username do utente> -g {<filenames>}+");
             return;
         }
 
@@ -116,10 +116,10 @@ public class mySNS {
                         deleteFiles(filenames, userUsernamee);
                         break;
                     case "-sa":
-                        // Handle the logic for command -sa
+                        metodosa(hostname, port, filenames, doctorUsername, userUsernamee);
                         break;
                     case "-se":
-                        // Handle the logic for command -se
+                        metodose(hostname, port, filenames, doctorUsername, userUsernamee);
                         break;
                     default:
                         System.out.println("Invalid command: " + command);
@@ -202,7 +202,95 @@ public class mySNS {
         }
     }
 
+    
+    private static void metodosa(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) throws IOException {
+        // Itera sobre cada nome de arquivo fornecido
+		for (String filename : filenames) {
+		    // Verifica se o arquivo existe localmente
+		    File file = new File(filename);
+		    if (!file.exists()) {
+		        System.out.println("O arquivo " + filename + " não existe localmente. Ignorando...");
+		        continue; // Passa para o próximo nome de arquivo
+		    }
 
+		    // Verifica se o arquivo assinado correspondente já existe no servidor
+		    File signedFile = new File(filename + ".assinado");
+		    if (signedFile.exists()) {
+		        System.out.println("O arquivo " + signedFile.getName() + " já existe no servidor. Ignorando...");
+		        continue; // Passa para o próximo nome de arquivo
+		    }
+
+		    // Gera o nome do arquivo de assinatura
+		    String signatureFileName = filename + ".assinatura." + doctorUsername;
+
+		    // Assina o arquivo
+		    signFile(file, signatureFileName);
+
+		    // Envia o arquivo de assinatura para o servidor
+		    sendFilesToServer(new String[]{signatureFileName}, userUsername);
+
+		    // Envia o arquivo assinado para o servidor
+		    sendFilesToServer(new String[]{filename}, userUsername);
+
+		    System.out.println("O arquivo " + filename + " foi assinado e enviado para o servidor com sucesso.");
+		}
+    }
+
+    
+    
+    private static void metodose(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) throws IOException {
+        // Itera sobre cada nome de arquivo fornecido
+		for (String filename : filenames) {
+		    // Verifica se o arquivo existe localmente
+		    File file = new File(filename);
+		    if (!file.exists()) {
+		        System.out.println("O arquivo " + filename + " não existe localmente. Ignorando...");
+		        continue; // Passa para o próximo nome de arquivo
+		    }
+
+		    // Verifica se o arquivo seguro correspondente já existe no servidor
+		    File secureFile = new File(filename + ".seguro");
+		    if (secureFile.exists()) {
+		        System.out.println("O arquivo " + secureFile.getName() + " já existe no servidor. Ignorando...");
+		        continue; // Passa para o próximo nome de arquivo
+		    }
+
+		    // Gera o nome do arquivo de envelope seguro
+		    String secureFileName = filename + ".seguro";
+
+		    // Cifra e assina o arquivo
+		    encryptAndSignFile(file, secureFileName, userUsername, doctorUsername);
+
+		    // Envia o arquivo seguro para o servidor
+		    sendFilesToServer(new String[]{secureFileName}, userUsername);
+
+		    // Envia as assinaturas - mesma lógica que o método metodosa
+		    String signatureFileName = filename + ".assinatura." + doctorUsername;
+		    signFile(file, signatureFileName);
+		    sendFilesToServer(new String[]{signatureFileName}, userUsername);
+
+		    // Envia as chaves - mesma lógica que o método metodosc
+		    List<String> encryptedFiles = new ArrayList<>();
+		    encryptedFiles.add(filename);
+		    sendFilesToServer(encryptedFiles.toArray(new String[0]), userUsername);
+
+		    System.out.println("O arquivo " + filename + " foi cifrado, assinado e enviado para o servidor com sucesso.");
+		}
+    }
+    
+    private static void signFile(File file, String signatureFileName) {
+        // Implementa a lógica para assinar o arquivo com a assinatura do médico para o -SA
+    	//PEGAR O DA TP
+    }
+    
+    
+    private static void encryptAndSignFile(File file, String secureFileName, String userUsername, String doctorUsername) {
+    	//Implementar lógica para cifrar e assinar ficheiro para o -SE
+    }
+
+    
+    
+   
     private static void encryptAESKeyWithRSA(SecretKey aesKey, String userUsername, String filename) throws FileNotFoundException, IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException {
         try (FileOutputStream kos = new FileOutputStream(filename + ".chave_secreta." + userUsername)) {
             FileInputStream kfile = new FileInputStream("keystore." + userUsername);
@@ -306,6 +394,8 @@ public class mySNS {
             System.err.println("Error sending files to the server: " + e.getMessage());
         }
     }
+    
+    //responsável por solicitar arquivos específicos do servidor e recebê-los
     private static void getFilesFromServer(String[] filenames, String userUsername) {
         try (ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
              ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream())) {
