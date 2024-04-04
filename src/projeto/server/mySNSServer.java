@@ -60,11 +60,11 @@ public class mySNSServer {
                 } catch (ClassNotFoundException e1) {
                     e1.printStackTrace();
                 }
-                outStream.writeObject(true); // Sending acknowledgment to the client
+                outStream.writeObject(true); 
                 
                 if(!bool) {
-	                // Create a directory based on the username
-	                var userDirectory = new File("/home/aluno-di/eclipse-workspace/SEG/src/projeto/server", user); // Assuming "user_files" is the parent directory
+	                
+	                var userDirectory = new File("/home/aluno-di/eclipse-workspace/SEG/src/projeto/server", user);
 	                System.out.println("User directory path: " + userDirectory.getAbsolutePath());
 	
 	                if (!userDirectory.exists()) {
@@ -78,14 +78,14 @@ public class mySNSServer {
 	                    }
 	                }
 	
-	                boolean allFilesReceived = true; // Track if all files were received successfully
+	                boolean allFilesReceived = true; 
 	
-	                // Receive and store files in the user directory
+	                
 	                try {
 	                	
 	                	while (true) {
 	                	    Long fileSize = (Long) inStream.readObject();
-	                	    if (fileSize == -1) { // End of file transfer
+	                	    if (fileSize == -1) {
 	                	        System.out.println("Client finished sending files.");
 	                	        break;
 	                	    }
@@ -106,7 +106,7 @@ public class mySNSServer {
 	                	        }
 	                	    } catch (IOException e) {
 	                	        e.printStackTrace();
-	                	        allFilesReceived = false; // Mark that not all files were received successfully
+	                	        allFilesReceived = false;
 	                	    }
 	
 	                	    System.out.println("End of file: " + filename);
@@ -114,16 +114,16 @@ public class mySNSServer {
 	
 	
 	                } catch (EOFException e) {
-	                    // Client disconnected prematurely
+	                
 	                    System.err.println("Client disconnected before all files were received.");
-	                    allFilesReceived = false; // Mark that not all files were received successfully
+	                    allFilesReceived = false; 
 	                } catch (ClassNotFoundException e1) {
 	                    e1.printStackTrace();
-	                    allFilesReceived = false; // Mark that not all files were received successfully
+	                    allFilesReceived = false; 
 	                }
 	
-	                // Send acknowledgment based on the status of file reception
-	                outStream.writeObject(allFilesReceived); // Sending acknowledgment to the client
+	                
+	                outStream.writeObject(allFilesReceived); 
 	                System.out.println("Server acknowledges successful file transfer: " + allFilesReceived);
                 } else {
                 	try {
@@ -136,21 +136,21 @@ public class mySNSServer {
                 			File[] files = userDirectory.listFiles();
                 			System.out.println("BBBBBBBBBBBB");
                 			for (File f : files) {
-                		        // Verifica se o nome do arquivo começa com o prefixo desejado
+                		        
                 		        if (f.getName().startsWith(prefix)) {
-                		            // Adiciona o arquivo à lista de arquivos encontrados
+                		            
                 		            filesFound.add(f);
                 		            System.out.println("CCCCCCCCCCCCC");
                 		        }
                 		    }
                 			for (File fi: filesFound) {
-                			    // Send the file name to the client
+                			    
                 			    outStream.writeObject(fi.getName());
                 			    System.out.println(fi.getName());
-                			    // Send the file size to the client
+                			    
                 			    outStream.writeObject(fi.length());
                 			    System.out.println(fi.length());
-                			    // Send the file content to the client
+                			    
                 			    try (BufferedInputStream myFileB = new BufferedInputStream(new FileInputStream(fi))) {
                 			        byte[] buffer = new byte[1024];
                 			        int bytesRead;
