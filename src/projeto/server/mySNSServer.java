@@ -19,35 +19,27 @@ import java.util.Set;
 public class mySNSServer {
 
     public static void main(String[] args) throws IOException {
-    	System.out.println("servidor: main");
-    	mySNSServer server = new mySNSServer();
-		server.startServer();
+        System.out.println("Servidor: main");
+        var server = new mySNSServer();
+        server.startServer();
     }
 
     public void startServer() throws IOException {
-    	ServerSocket sSoc = null;
-    	
-    	try {
-    		sSoc = new ServerSocket(23456);
-    	}catch (IOException e) {
-			System.err.println(e.getMessage());
-			System.exit(-1);
-		}
-    	
-        while (true) {
-        	try {
-	        	Socket inSoc = sSoc.accept();
-				ServerThread newServerThread = new ServerThread(inSoc);
-				newServerThread.start();
-		    }catch (IOException e) {
-		        e.printStackTrace();
-		    }
+        try (var sSoc = new ServerSocket(23456)) {
+            while (true) {
+                try {
+                    var inSoc = sSoc.accept();
+                    var newServerThread = new ServerThread(inSoc);
+                    newServerThread.start();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
-   }
-   
+    }
+
     class ServerThread extends Thread {
-    	
-        private Socket socket = null;
+        private Socket socket;
 
         ServerThread(Socket inSoc) {
             socket = inSoc;
@@ -55,14 +47,11 @@ public class mySNSServer {
         }
 
         public void run() {
-            try{
-            	ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-				ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
-				
+            try (var outStream = new ObjectOutputStream(socket.getOutputStream());
+                 var inStream = new ObjectInputStream(socket.getInputStream())) {
 
                 String user = null;
                 Boolean bool = null;
-                
                 try {
                     user = (String) inStream.readObject();
                     bool = (Boolean) inStream.readObject();
@@ -71,7 +60,6 @@ public class mySNSServer {
                 } catch (ClassNotFoundException e1) {
                     e1.printStackTrace();
                 }
-                
                 outStream.writeObject(true); 
                 
                 if(!bool) {

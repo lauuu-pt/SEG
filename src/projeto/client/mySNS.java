@@ -116,7 +116,7 @@ public class mySNS {
                         metodosa(hostname, port, filenames, doctorUsername, userUsernamee);
                         break;
                     case "-se":
-                        metodose(hostname, port, filenames, doctorUsername, userUsernamee);
+                        //metodose(hostname, port, filenames, doctorUsername, userUsernamee);
                         break;
                     default:
                         System.out.println("Invalid command: " + command);
@@ -210,20 +210,85 @@ public class mySNS {
 		        System.out.println("O arquivo " + signedFile.getName() + " já existe no servidor. Ignorando...");
 		        continue; 
 		    }
+		    
+		    File signature = new File(filename + ".assinatura." + doctorUsername); // verifica se já foi assinado
+		    if (signature.exists()) {
+		        System.out.println("O arquivo " + signature.getName() + " já existe no servidor. Ignorando...");
+		        continue; 
+		    }
 
-		    String signatureFileName = filename + ".assinatura." + doctorUsername;
+		    
 
-		    signFile(file, signatureFileName); // assina com a assinatura do filename acima
+		    signFile(filename, doctorUsername); // assina com a assinatura do filename acima
 
-		    sendFilesToServer(new String[]{signatureFileName}, userUsername); // envia a assinatura para userUsername
+		   
 
-		    sendFilesToServer(new String[]{filename}, userUsername); // envia o ficheiro assinado
+		    sendFilesToServer2(new String[]{filename}, userUsername, doctorUsername); // envia o ficheiro assinado
 
 		    System.out.println("O arquivo " + filename + " foi assinado e enviado para o servidor com sucesso.");
 		}
     }
-  
-    private static void metodose(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) throws IOException, UnrecoverableKeyException, InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException {
+	
+    private static void sendFilesToServer2(String[] filenames, String userUsername,String doctorUsername) {
+    	try {
+            ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+            ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+            
+            
+            outStream.writeObject(userUsername);
+            
+            outStream.writeObject(false);
+           
+            
+     
+            for (String filename : filenames) {
+             
+            	File assinadoFile = new File(filename+".assinado");
+                Long fileSize = assinadoFile.length();
+                outStream.writeObject(fileSize); 
+                outStream.writeObject(filename + ".assinado"); 
+                try (BufferedInputStream assinadoFileB = new BufferedInputStream(new FileInputStream(assinadoFile))) {
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+                    while ((bytesRead = assinadoFileB.read(buffer, 0, 1024)) > 0) {
+                        outStream.write(buffer, 0, bytesRead);
+                    }
+                }
+                File assinaturaFile = new File(filename+".assinatura."+doctorUsername);
+                fileSize = assinaturaFile.length();
+                outStream.writeObject(fileSize); 
+                outStream.writeObject(filename+".assinatura."+doctorUsername); 
+                try (BufferedInputStream assinaturaFileB = new BufferedInputStream(new FileInputStream(assinaturaFile))) {
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+                    while ((bytesRead = assinaturaFileB.read(buffer, 0, 1024)) > 0) {
+                        outStream.write(buffer, 0, bytesRead);
+                    }
+                }
+
+                
+            
+            outStream.writeObject(-1L); 
+            outStream.flush(); // Flush the stream to ensure all data is sent
+
+            
+            Boolean acknowledgment = (Boolean) inStream.readObject();
+            System.out.println("Server acknowledgment: " + acknowledgment);
+
+            
+            inStream.close();
+            outStream.close();
+
+            
+            socket.close();
+            System.out.println("Connection closed.");
+
+        }} catch (IOException | ClassNotFoundException e) {
+            System.err.println("Error sending files to the server: " + e.getMessage());
+        }
+    }
+
+	/*private static void metodose(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) throws IOException, UnrecoverableKeyException, InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException {
   
 		for (String filename : filenames) {
 	
@@ -259,39 +324,40 @@ public class mySNS {
 
 		    System.out.println("O arquivo " + filename + " foi cifrado, assinado e enviado para o servidor com sucesso.");
 		}
-    }
+    }*/
     
-    private static void signFile(File file, String signatureFileName) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, SignatureException, InvalidKeyException {
-        
-    	String[] ficheiro = signatureFileName.split(".");
-    	String doctorUsername = ficheiro[-1];
-    	
+    private static void signFile(String file, String doctorUsername) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, SignatureException, InvalidKeyException {
+
+    	FileInputStream fis = new FileInputStream(file);
+    	FileOutputStream fos = new FileOutputStream(file+".assinado");
+    	FileOutputStream fos2 = new FileOutputStream(file+".assinatura."+doctorUsername);
     	// Ler a chave privada do médico
-        FileInputStream kfile1 = new FileInputStream("keystore." + doctorUsername); //ler a keystore
-        KeyStore kstore = KeyStore.getInstance("PKCS12");
-        kstore.load(kfile1, "123456".toCharArray());
-        // Importar a chave privada do médico
-        PrivateKey myPrivateKey = (PrivateKey) kstore.getKey(doctorUsername, "123456".toCharArray());
+    	FileInputStream kfile1 = new FileInputStream("keystore." + doctorUsername); //ler a keystore
+    	KeyStore kstore = KeyStore.getInstance("PKCS12");
+    	kstore.load(kfile1, "123456".toCharArray());
+    	PrivateKey myPrivateKey = (PrivateKey) kstore.getKey(doctorUsername, "123456".toCharArray());
 
-        // Criar o objeto para criar a assinatura com a chave privada
-        Signature s = Signature.getInstance("SHA256withRSA");
-        s.initSign(myPrivateKey);
+    	// Criar o objeto para criar a assinatura com a chave privada
+    	Signature s = Signature.getInstance("MD5withRSA");
+    	s.initSign(myPrivateKey);
 
-        // Ler o conteúdo do arquivo e atualizar a assinatura
-        try (FileInputStream fis = new FileInputStream(file)) {
-            byte[] b = new byte[1024];  // leitura
-            int i = fis.read(b);
-            while (i != -1) { // quando for igual a -1 cheguei ao fim do ficheiro
-                s.update(b, 0, i);
-                i = fis.read(b); // leitura
-            }
-        }
 
-        // Metemos a assinatura no ficheiro
-        byte[] assinatura = s.sign();
-        try (FileOutputStream kos = new FileOutputStream(signatureFileName)) {
-            kos.write(assinatura); // escrever o conteúdo do ficheiro com a chave
-        }
+    	byte[] b = new byte[1024];  // leitura
+    	int i = fis.read(b);
+    	while (i != -1) { // quando for igual a -1 cheguei ao fim do ficheiro
+    		s.update(b, 0, i);
+    		fos.write(b,0,i);
+    		i = fis.read(b); // leitura
+    	}
+    	byte[] signature2 = s.sign();
+
+    	fos.write(s.sign());
+    	fos2.write(signature2);
+    	fos.close();
+    	fis.close();
+
+
+
     }
 
  
@@ -362,10 +428,6 @@ public class mySNS {
                 Long fileSize = cifradoFile.length();
                 outStream.writeObject(fileSize); 
                 outStream.writeObject(filename + ".cifrado"); 
-                
-             
-
-                
                 try (BufferedInputStream cifradoFileB = new BufferedInputStream(new FileInputStream(cifradoFile))) {
                     byte[] buffer = new byte[1024];
                     int bytesRead;
@@ -386,7 +448,8 @@ public class mySNS {
                         outStream.write(buffer, 0, bytesRead);
                     }
                 }
-            }
+
+                
             
             outStream.writeObject(-1L); 
             outStream.flush(); // Flush the stream to ensure all data is sent
@@ -403,7 +466,7 @@ public class mySNS {
             socket.close();
             System.out.println("Connection closed.");
 
-        } catch (IOException | ClassNotFoundException e) {
+            }} catch (IOException | ClassNotFoundException e) {
             System.err.println("Error sending files to the server: " + e.getMessage());
         }
     }
