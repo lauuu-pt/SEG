@@ -126,48 +126,8 @@ public class mySNSServer {
 	                outStream.writeObject(allFilesReceived); 
 	                System.out.println("Server acknowledges successful file transfer: " + allFilesReceived);
                 } else {
-                	try {
-                		var userDirectory = new File("/home/aluno-di/eclipse-workspace/SEG/src/projeto/server", user);
-                		String filename = (String) inStream.readObject();
-                		File file = new File(filename);
-                		System.out.println("AAAAAAAAAAAAAAAAA");
-                			String prefix = filename;
-                			List<File> filesFound = new ArrayList<>();
-                			File[] files = userDirectory.listFiles();
-                			System.out.println("BBBBBBBBBBBB");
-                			for (File f : files) {
-                		        
-                		        if (f.getName().startsWith(prefix)) {
-                		            
-                		            filesFound.add(f);
-                		            System.out.println("CCCCCCCCCCCCC");
-                		        }
-                		    }
-                			for (File fi: filesFound) {
-                			    
-                			    outStream.writeObject(fi.getName());
-                			    System.out.println(fi.getName());
-                			    
-                			    outStream.writeObject(fi.length());
-                			    System.out.println(fi.length());
-                			    
-                			    try (BufferedInputStream myFileB = new BufferedInputStream(new FileInputStream(fi))) {
-                			        byte[] buffer = new byte[1024];
-                			        int bytesRead;
-                			        while ((bytesRead = myFileB.read(buffer)) != -1) {
-                			            outStream.write(buffer, 0, bytesRead);
-                			            System.out.println("FFFFFFFFFFFF");
-                			        }
-                			    }
-                			}
-
-                			outStream.close();
-                			inStream.close();
-            		    
-                	} catch(Exception e ){
-                		
-                	}
                 }
+              
 	            } catch (IOException e) {
 	                System.err.println("Erro na comunicação com o cliente: " + e.getMessage());
 	                if (e instanceof EOFException) {

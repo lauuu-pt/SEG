@@ -12,6 +12,7 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
+import java.security.Key;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -23,8 +24,12 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
@@ -32,6 +37,8 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 
 public class mySNS {
+	
+	String key = "chavinha";
 
     private static Socket socket;
 
@@ -217,11 +224,7 @@ public class mySNS {
 		        continue; 
 		    }
 
-		    
-
 		    signFile(filename, doctorUsername); // assina com a assinatura do filename acima
-
-		   
 
 		    sendFilesToServer2(new String[]{filename}, userUsername, doctorUsername); // envia o ficheiro assinado
 
@@ -239,8 +242,6 @@ public class mySNS {
             
             outStream.writeObject(false);
            
-            
-     
             for (String filename : filenames) {
              
             	File assinadoFile = new File(filename+".assinado");
@@ -254,7 +255,7 @@ public class mySNS {
                         outStream.write(buffer, 0, bytesRead);
                     }
                 }
-                File assinaturaFile = new File(filename+".assinatura."+doctorUsername);
+                File assinaturaFile = new File(filename+".assinatura."+ doctorUsername);
                 fileSize = assinaturaFile.length();
                 outStream.writeObject(fileSize); 
                 outStream.writeObject(filename+".assinatura."+doctorUsername); 
@@ -326,11 +327,84 @@ public class mySNS {
 		}
     }*/
     
-    private static void signFile(String file, String doctorUsername) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, SignatureException, InvalidKeyException {
+    
+    private static void metodoG(String[] filenames) {
+    	
+    	Pattern padraoC = Pattern.compile("\\.cifrado$");
+    	Pattern padraoA = Pattern.compile("\\.assinado$");
+    	
+    	for (String filename : filenames) { // para cada ficheiro dado no comando
+		    
+		    File file = new File(filename);
+		    if (!file.exists()) {
+		        System.out.println("O arquivo " + filename + " não existe localmente. Ignorando...");
+		        continue; 
+		    }
+		    
+		    Matcher matcherC = padraoC.matcher(filename);
+		    Matcher matcherA = padraoA.matcher(filename);
+		    
+		    if (matcherC.find()) {
+		    	decifraFile(file, key);	    
+		    	
+    	} else if (matcherA.find()) {
+    			verificaAssinatura();
+    	}
+    }
+    }
+    	
+    private static void decifraFile(String filename, String key) throws IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+    	
+    	byte[] keyEncoded = new byte[256];
+		FileInputStream kfile = new FileInputStream("test.key");
+		kfile.read(keyEncoded);
+		kfile.close();
+		
+		// 1) Obter a chave privada da keystore
+		FileInputStream kfile1 = new FileInputStream("keystore"); // ver keystore
+		KeyStore kstore = KeyStore.getInstance("PKCS12");
+		kstore.load(kfile1, "123456".toCharArray());
+		
+		Key myPrivateKey = kstore.getKey("maria", "123456".toCharArray());
+			
+		// 2) Decifrar chave AES com a chave RSA
+		Cipher c1 = Cipher.getInstance("RSA");
+		c1.init(Cipher.UNWRAP_MODE, myPrivateKey);
+		Key aesKey = c1.unwrap(keyEncoded, "AES", Cipher.SECRET_KEY);
+		
+		// 3) Decifra
+		Cipher c2 = Cipher.getInstance("AES");
+		c2.init(Cipher.DECRYPT_MODE, aesKey);
+		c2.doFinal();
+		
+		FileInputStream fis = new FileInputStream("test.cif");
+	    FileOutputStream fos = new FileOutputStream("test2.pdf");
+	    CipherInputStream cis = new CipherInputStream(fis, c2);
+	    
+	    byte[] buffer = new byte[1024];
+	    
+	    int i = cis.read(buffer);
+	    while (i != -1) { // quando for igual a -1 cheguei ao fim do ficheiro
+	        fos.write(buffer, 0, i); // escrita do lido com o tamanho do que lemos
+	        i = fis.read(buffer); // leitura
+	    }
+	    fos.close();
+	    cis.close();
+	    fis.close();
+	    	
+	}	    
+    
+    private static void verificaAssinatura() {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void signFile(String file, String doctorUsername) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, SignatureException, InvalidKeyException {
 
     	FileInputStream fis = new FileInputStream(file);
     	FileOutputStream fos = new FileOutputStream(file+".assinado");
-    	FileOutputStream fos2 = new FileOutputStream(file+".assinatura."+doctorUsername);
+    	FileOutputStream fos2 = new FileOutputStream(file+".assinatura."+ doctorUsername);
+    	
     	// Ler a chave privada do médico
     	FileInputStream kfile1 = new FileInputStream("keystore." + doctorUsername); //ler a keystore
     	KeyStore kstore = KeyStore.getInstance("PKCS12");
@@ -361,9 +435,6 @@ public class mySNS {
     }
 
  
-    private static void encryptAndSignFile(File file, String secureFileName, String userUsername, String doctorUsername) {
-    
-    }
 
     
     
