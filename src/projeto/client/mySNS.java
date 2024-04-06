@@ -2,48 +2,22 @@ package projeto.client;
 
 
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.net.Socket;
-import java.net.SocketException;
-import java.net.UnknownHostException;
-import java.security.InvalidKeyException;
-import java.security.Key;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.Signature;
-import java.security.SignatureException;
-import java.security.UnrecoverableKeyException;
+import java.io.*;
+import java.net.*;
+import java.security.*;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.*;
+import java.util.regex.*;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.CipherInputStream;
-import javax.crypto.CipherOutputStream;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.KeyGenerator;
-import javax.crypto.NoSuchPaddingException;
-import javax.crypto.SecretKey;
+import javax.crypto.*;
 
 public class mySNS {
 	
     private static Socket socket;
 
-    public static void main(String[] args) throws InterruptedException, ClassNotFoundException, UnrecoverableKeyException, InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException {
-        if (args.length < 6 || !args[0].equals("-a") ) {
+    public static void main(String[] args) {
+        if (args.length < 6 || !args[0].equals("-a")) {
             System.out.println("Usage: java mySNS -a <serverAddress> -m <doctorUsername> -u <userUsername> [-sc <filenames>] [-sa <filenames>] [-se <filenames>] [-g <filenames>]\nou\nUsage: java mySNS -a <serverAddress> -u <username do utente> -g {<filenames>}+");
             return;
         }
@@ -64,84 +38,94 @@ public class mySNS {
             return;
         }
 
-        
-
-        try {
-            
-            socket = new Socket(hostname, port);
+        try (Socket socket = new Socket(hostname, port)) {
             System.out.println("Connected to the server.");
             String userUsername = args[3];
-           
+
             if (args.length >= 6 && args[4].equals("-g")) {
                 System.out.println("Vale");
-                
-               
+
                 if (args.length > 6) {
-            
+
                     String[] filenames = new String[args.length - 5];
                     System.arraycopy(args, 5, filenames, 0, filenames.length);
-                    
+
                     for (String filename : filenames) {
                         System.out.println("Filename: " + filename);
-                        getFilesFromServer(new String[] { filename }, userUsername);
+                        try {
+							getFilesFromServer(new String[]{filename}, userUsername);
+						} catch (ClassNotFoundException e) {
+							e.printStackTrace();
+						}
                     }
+                    
                 } else if (args.length == 6) {
                     String filename = args[5];
                     System.out.println("Filename1: " + filename);
-                    getFilesFromServer(new String[] { filename }, userUsername);
+                    
+                    try {
+						getFilesFromServer(new String[]{filename}, userUsername);
+					} catch (ClassNotFoundException e) {
+						e.printStackTrace();
+					}
+                    
                 } else {
                     System.out.println("No filenames provided.");
                 }
-            }
-
-            
-             else if (args.length >= 8) {
-            	 String doctorUsername = args[3];
-                 String userUsernamee = args[5];
-
                 
-                 File medicoFile = new File("keystore." + doctorUsername);
-                 if (!medicoFile.exists()) {
-                     System.out.println("Keystore do medico " + doctorUsername + " nao existe");
-                     return;
-                 }
+            } else if (args.length >= 8) {
+                String doctorUsername = args[3];
+                String userUsernamee = args[5];
 
-               
-                 File utenteFile = new File("keystore." + userUsernamee);
-                 if (!utenteFile.exists()) {
-                     System.out.println("Keystore do utente" + userUsernamee + " nao existe.");
-                     return;
-                 }
-                 
-               
+                File medicoFile = new File("keystore." + doctorUsername);
+                if (!medicoFile.exists()) {
+                    System.out.println("Keystore do medico " + doctorUsername + " nao existe");
+                    return;
+                }
+
+                File utenteFile = new File("keystore." + userUsernamee);
+                if (!utenteFile.exists()) {
+                    System.out.println("Keystore do utente" + userUsernamee + " nao existe.");
+                    return;
+                }
+
                 String command = args[6];
                 String[] filenames = new String[args.length - 7];
                 System.arraycopy(args, 7, filenames, 0, filenames.length);
+                
                 switch (command) {
+                
                     case "-sc":
                         metodosc(hostname, port, filenames, doctorUsername, userUsernamee);
                         deleteFiles(filenames, userUsernamee);
                         break;
+                        
                     case "-sa":
-                        metodosa(hostname, port, filenames, doctorUsername, userUsernamee);
+						metodosa(hostname, port, filenames, doctorUsername, userUsernamee);
                         break;
+                        
                     case "-se":
-                        //metodose(hostname, port, filenames, doctorUsername, userUsernamee);
+					try {
+						metodose(hostname, port, filenames, doctorUsername, userUsernamee);
+					} catch (UnrecoverableKeyException | InvalidKeyException | KeyStoreException
+							| NoSuchAlgorithmException | CertificateException | SignatureException e) {
+						e.printStackTrace();
+					}
                         break;
+                        
                     default:
                         System.out.println("Invalid command: " + command);
                 }
             } else {
                 System.out.println("Invalid command or combination of commands.");
             }
-
-
         } catch (UnknownHostException e) {
             System.err.println("Error connecting to the server. Unknown server address: " + hostname);
         } catch (IOException e) {
             System.err.println("Error connecting to the server: " + e.getMessage());
         }
     }
+
 
     private static void deleteFiles(String[] filenames,String userUsername) {
     	 for (String filename : filenames) {
@@ -205,35 +189,38 @@ public class mySNS {
     }
 
     
-    private static void metodosa(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) throws IOException, UnrecoverableKeyException, InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException {
-    
-		for (String filename : filenames) { // para cada ficheiro dado no comando
-		    
-		    File file = new File(filename);
-		    if (!file.exists()) {
-		        System.out.println("O arquivo " + filename + " não existe localmente. Ignorando...");
-		        continue; 
-		    }
-		    
-		    File signedFile = new File(filename + ".assinado"); // verifica se já foi assinado
-		    if (signedFile.exists()) {
-		        System.out.println("O arquivo " + signedFile.getName() + " já existe no servidor. Ignorando...");
-		        continue; 
-		    }
-		    
-		    File signature = new File(filename + ".assinatura." + doctorUsername); // verifica se já foi assinado
-		    if (signature.exists()) {
-		        System.out.println("O arquivo " + signature.getName() + " já existe no servidor. Ignorando...");
-		        continue; 
-		    }
+    private static void metodosa(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
+        for (String filename : filenames) { // para cada ficheiro dado no comando
+            try {
+                File file = new File(filename);
+                if (!file.exists()) {
+                    System.out.println("O arquivo " + filename + " não existe localmente. Ignorando...");
+                    continue; 
+                }
 
-		    signFile(filename, doctorUsername); // assina com a assinatura do filename acima
+                File signedFile = new File(filename + ".assinado"); // verifica se já foi assinado
+                if (signedFile.exists()) {
+                    System.out.println("O arquivo " + signedFile.getName() + " já existe no servidor. Ignorando...");
+                    continue; 
+                }
 
-		    sendFilesToServer2(new String[]{filename}, userUsername, doctorUsername); // envia o ficheiro assinado
+                File signature = new File(filename + ".assinatura." + doctorUsername); // verifica se já foi assinado
+                if (signature.exists()) {
+                    System.out.println("O arquivo " + signature.getName() + " já existe no servidor. Ignorando...");
+                    continue; 
+                }
 
-		    System.out.println("O arquivo " + filename + " foi assinado e enviado para o servidor com sucesso.");
-		}
+                signFile(filename, doctorUsername); // assina com a assinatura do filename acima
+
+                sendFilesToServer2(new String[]{filename}, userUsername, doctorUsername); // envia o ficheiro assinado
+
+                System.out.println("O arquivo " + filename + " foi assinado e enviado para o servidor com sucesso.");
+            } catch (IOException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException | KeyStoreException | InvalidKeyException | SignatureException e) {
+                e.printStackTrace();
+            }
+        }
     }
+
 	
     private static void sendFilesToServer2(String[] filenames, String userUsername,String doctorUsername) {
     	try {
@@ -269,7 +256,6 @@ public class mySNS {
                         outStream.write(buffer, 0, bytesRead);
                     }
                 }
-
                 
             
             outStream.writeObject(-1L); 
@@ -292,7 +278,7 @@ public class mySNS {
         }
     }
 
-	/*private static void metodose(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) throws IOException, UnrecoverableKeyException, InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException {
+	private static void metodose(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) throws IOException, UnrecoverableKeyException, InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException {
   
 		for (String filename : filenames) {
 	
@@ -310,13 +296,13 @@ public class mySNS {
 		    }
 
 		    
-		    String secureFileName = filename + ".seguro";
+		    /*String secureFileName = filename + ".seguro";
 
 		   
 		    encryptAndSignFile(file, secureFileName, userUsername, doctorUsername);
 
 		    
-		    sendFilesToServer(new String[]{secureFileName}, userUsername);
+		    //sendFilesToServer(new String[]{secureFileName}, userUsername);
 
 		    String signatureFileName = filename + ".assinatura." + doctorUsername;
 		    signFile(file, signatureFileName);
@@ -324,11 +310,11 @@ public class mySNS {
 
 		    List<String> encryptedFiles = new ArrayList<>();
 		    encryptedFiles.add(filename);
-		    sendFilesToServer(encryptedFiles.toArray(new String[0]), userUsername);
+		    //sendFilesToServer2(encryptedFiles.toArray(new String[0]), userUsername);*/
 
 		    System.out.println("O arquivo " + filename + " foi cifrado, assinado e enviado para o servidor com sucesso.");
 		}
-    }*/
+    }
     
     
     private static void metodoG(String[] filenames) {
@@ -357,10 +343,16 @@ public class mySNS {
 		    		
 		    		String[] argsAES = filenameAES.split("\\.");
 		    		String AES = argsAES[0] + args[1];
-		    		String extensão= AES[2];
+		    		String extensão = argsAES[2];
 		    		
 		    		if(filename.equals(AES) && !extensão.equals(".cifrado")){
-		    			decifraFile(file, filenameAES, userUsername);
+		    			try {
+							decifraFile(filename, filenameAES, userUsername);
+						} catch (UnrecoverableKeyException | InvalidKeyException | KeyStoreException
+								| NoSuchAlgorithmException | CertificateException | NoSuchPaddingException
+								| IllegalBlockSizeException | BadPaddingException | IOException e) {
+							e.printStackTrace();
+						}
 		    			break;
 	    			}
 		    	}    	
@@ -378,7 +370,7 @@ public class mySNS {
 		    		String extensão = argsAss[2];
 		    		
 		    		if(filename.equals(nome) && !extensão.equals(".assinado")){
-		    			String user = filenameAss[3];
+		    			String user = argsAss[3];
 		    			verificaAssinatura(filenameAss, assinatura, user);
 		    			break;
 		    		}
@@ -413,7 +405,7 @@ public class mySNS {
 		
 		FileInputStream fis = new FileInputStream(filename);
 		
-		String nome = filename.split("\\.");
+		String[] nome = filename.split("\\.");
 		String nomeCOS = nome[0] + nome[1];
 		
 	    FileOutputStream fos = new FileOutputStream(nomeCOS);
@@ -434,35 +426,47 @@ public class mySNS {
 	}	    
     
     private static void verificaAssinatura(String fileName, String assinatura, String user) {
-    	// Ler a assinatura
-		byte[] assinaturaOriginal = new byte[256];
-		FileInputStream kfile = new FileInputStream(fileName);
-    	
-		kfile.read(assinaturaOriginal);
-		kfile.close();
-		
-		// Ler a chave privada
-		FileInputStream kfile1 = new FileInputStream("keystore" + user);
-		KeyStore kstore = KeyStore.getInstance("PKCS12");
-		kstore.load(kfile1, "123456".toCharArray()); // keystore e um ficheiro
-		Certificate cert = kstore.getCertificate(user);
-		
-		// Criar o objeto para criar a assinatura com a chave privada
-		Signature s = Signature.getInstance("SHA256withRSA"); // usamos essa no projeto
-		s.initVerify(cert); // tambem da para verificar com a public key
-				
-		FileInputStream fis; // usado para ler o conteÃºdo
-		fis = new FileInputStream(fileName);
-		    
-		byte[] b = new byte[1024];  // leitura
-		int i = fis.read(b);
-	    while (i != -1) { // quando for igual a -1 cheguei ao fim do ficheiro
-	    	s.update(b, 0, i);
-	    	i = fis.read(b); // leitura
-	    }
-	    
-		boolean res = s.verify(assinaturaOriginal);
-	}
+        // Ler a assinatura
+        byte[] assinaturaOriginal = new byte[256];
+        try {
+            FileInputStream kfile = new FileInputStream(fileName);
+            kfile.read(assinaturaOriginal);
+            kfile.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return; // Retornar em caso de erro de leitura do arquivo
+        }
+        
+        try {
+            // Ler a chave privada
+            FileInputStream kfile1 = new FileInputStream("keystore" + user);
+            KeyStore kstore = KeyStore.getInstance("PKCS12");
+            kstore.load(kfile1, "123456".toCharArray()); // keystore e um ficheiro
+            Certificate cert = kstore.getCertificate(user);
+            
+            // Criar o objeto para criar a assinatura com a chave privada
+            Signature s = Signature.getInstance("SHA256withRSA"); // usamos essa no projeto
+            s.initVerify(cert); // tambem da para verificar com a public key
+                    
+            FileInputStream fis; // usado para ler o conteÃºdo
+            fis = new FileInputStream(fileName);
+            
+            byte[] b = new byte[1024];  // leitura
+            int i = fis.read(b);
+            while (i != -1) { // quando for igual a -1 cheguei ao fim do ficheiro
+                s.update(b, 0, i);
+                i = fis.read(b); // leitura
+            }
+            
+            boolean res = s.verify(assinaturaOriginal);
+            
+            fis.close();
+            
+        } catch (IOException | NoSuchAlgorithmException | CertificateException | KeyStoreException | SignatureException | InvalidKeyException e) {
+            e.printStackTrace();
+        }
+    }
+
 
 	private static void signFile(String file, String doctorUsername) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, SignatureException, InvalidKeyException {
 
