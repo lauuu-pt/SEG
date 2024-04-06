@@ -38,8 +38,6 @@ import javax.crypto.SecretKey;
 
 public class mySNS {
 	
-	String key = "chavinha";
-
     private static Socket socket;
 
     public static void main(String[] args) throws InterruptedException, ClassNotFoundException, UnrecoverableKeyException, InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException {
@@ -74,7 +72,10 @@ public class mySNS {
            
             if (args.length >= 6 && args[4].equals("-g")) {
                 System.out.println("Vale");
+                
+               
                 if (args.length > 6) {
+            
                     String[] filenames = new String[args.length - 5];
                     System.arraycopy(args, 5, filenames, 0, filenames.length);
                     
@@ -330,6 +331,7 @@ public class mySNS {
     
     private static void metodoG(String[] filenames) {
     	
+    	       
     	Pattern padraoC = Pattern.compile("\\.cifrado$");
     	Pattern padraoA = Pattern.compile("\\.assinado$");
     	
@@ -345,27 +347,57 @@ public class mySNS {
 		    Matcher matcherA = padraoA.matcher(filename);
 		    
 		    if (matcherC.find()) {
-		    	decifraFile(file, key);	    
 		    	
-    	} else if (matcherA.find()) {
-    			verificaAssinatura();
+		    	String[] args = filename.split("\\.");
+		    	String userUsername = args[3];
+		    	
+		    	for (String filenameAES : filenames) {
+		    		
+		    		String[] argsAES = filenameAES.split("\\.");
+		    		String AES = argsAES[0] + args[1];
+		    		String extensão= AES[2];
+		    		
+		    		if(filename.equals(AES) && !extensão.equals(".cifrado")){
+		    			decifraFile(file, filenameAES, userUsername);
+		    			break;
+	    			}
+		    	}    	
+		    	
+		    	
+		    } else if (matcherA.find()) {
+		    	
+		    	String[] args = filename.split("\\.");
+		    	String assinatura = args[2];
+		    	
+		    	for (String filenameAss : filenames) {
+		    
+		    		String[] argsAss = filenameAss.split("\\.");
+		    		String nome = argsAss[0] + argsAss[1];
+		    		String extensão = argsAss[2];
+		    		
+		    		if(filename.equals(nome) && !extensão.equals(".assinado")){
+		    			String user = filenameAss[3];
+		    			verificaAssinatura(filenameAss, assinatura, user);
+		    			break;
+		    		}
+		    	}	
+		    } 
     	}
     }
-    }
     	
-    private static void decifraFile(String filename, String key) throws IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+    private static void decifraFile(String filename, String key, String userUsername) throws IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
     	
     	byte[] keyEncoded = new byte[256];
-		FileInputStream kfile = new FileInputStream("test.key");
+		FileInputStream kfile = new FileInputStream(key);
 		kfile.read(keyEncoded);
 		kfile.close();
 		
 		// 1) Obter a chave privada da keystore
-		FileInputStream kfile1 = new FileInputStream("keystore"); // ver keystore
+		FileInputStream kfile1 = new FileInputStream("keystore." + userUsername); // ver keystore do user
 		KeyStore kstore = KeyStore.getInstance("PKCS12");
 		kstore.load(kfile1, "123456".toCharArray());
 		
-		Key myPrivateKey = kstore.getKey("maria", "123456".toCharArray());
+		Key myPrivateKey = kstore.getKey(userUsername, "123456".toCharArray());
 			
 		// 2) Decifrar chave AES com a chave RSA
 		Cipher c1 = Cipher.getInstance("RSA");
@@ -377,8 +409,12 @@ public class mySNS {
 		c2.init(Cipher.DECRYPT_MODE, aesKey);
 		c2.doFinal();
 		
-		FileInputStream fis = new FileInputStream("test.cif");
-	    FileOutputStream fos = new FileOutputStream("test2.pdf");
+		FileInputStream fis = new FileInputStream(filename);
+		
+		String nome = filename.split("\\.");
+		String nomeCOS = nome[0] + nome[1];
+		
+	    FileOutputStream fos = new FileOutputStream(nomeCOS);
 	    CipherInputStream cis = new CipherInputStream(fis, c2);
 	    
 	    byte[] buffer = new byte[1024];
@@ -388,15 +424,42 @@ public class mySNS {
 	        fos.write(buffer, 0, i); // escrita do lido com o tamanho do que lemos
 	        i = fis.read(buffer); // leitura
 	    }
+	    
 	    fos.close();
 	    cis.close();
 	    fis.close();
 	    	
 	}	    
     
-    private static void verificaAssinatura() {
-		// TODO Auto-generated method stub
+    private static void verificaAssinatura(String fileName, String assinatura, String user) {
+    	// Ler a assinatura
+		byte[] assinaturaOriginal = new byte[256];
+		FileInputStream kfile = new FileInputStream(fileName);
+    	
+		kfile.read(assinaturaOriginal);
+		kfile.close();
 		
+		// Ler a chave privada
+		FileInputStream kfile1 = new FileInputStream("keystore" + user);
+		KeyStore kstore = KeyStore.getInstance("PKCS12");
+		kstore.load(kfile1, "123456".toCharArray()); // keystore e um ficheiro
+		Certificate cert = kstore.getCertificate(user);
+		
+		// Criar o objeto para criar a assinatura com a chave privada
+		Signature s = Signature.getInstance("SHA256withRSA"); // usamos essa no projeto
+		s.initVerify(cert); // tambem da para verificar com a public key
+				
+		FileInputStream fis; // usado para ler o conteÃºdo
+		fis = new FileInputStream(fileName);
+		    
+		byte[] b = new byte[1024];  // leitura
+		int i = fis.read(b);
+	    while (i != -1) { // quando for igual a -1 cheguei ao fim do ficheiro
+	    	s.update(b, 0, i);
+	    	i = fis.read(b); // leitura
+	    }
+	    
+		boolean res = s.verify(assinaturaOriginal);
 	}
 
 	private static void signFile(String file, String doctorUsername) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, SignatureException, InvalidKeyException {
@@ -430,14 +493,8 @@ public class mySNS {
     	fos.close();
     	fis.close();
 
-
-
     }
 
- 
-
-    
-    
    
     private static void encryptAESKeyWithRSA(SecretKey aesKey, String userUsername, String filename) throws FileNotFoundException, IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException {
         try (FileOutputStream kos = new FileOutputStream(filename + ".chave_secreta." + userUsername)) {
@@ -546,41 +603,46 @@ public class mySNS {
     private static void getFilesFromServer(String[] filenames, String userUsername) throws ClassNotFoundException {
         try (ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
              ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream())) {
-
+        	      	
             
         	outStream.writeObject(userUsername);   
         	outStream.writeObject(true);
+        	
+        	outStream.writeObject(filenames.length);
 
             for (String filename : filenames) {
                 
                 outStream.writeObject(filename);
                 System.out.println("send file name");
              
-                String name = (String) inStream.readObject();
+                int tamanho = (int) inStream.readObject();
                 System.out.println("receive filename");
-
                 
-                long fileSize = (long) inStream.readObject();
-                System.out.println("receive filesize");
-                if (fileSize == -1) {
-                    System.out.println("File " + filename + " not found on the server.");
-                    continue;
-                }
-                System.out.println("EEEEEEEEEEEEEE");
-                
-                if (fileSize > 0) {
-                    try (FileOutputStream fileOutputStream = new FileOutputStream(name)) {
-                        byte[] buffer = new byte[1024];
-                        int bytesRead;
-                        long remainingBytes = fileSize;
-                        while (remainingBytes > 0 && (bytesRead = inStream.read(buffer, 0, (int) Math.min(buffer.length, remainingBytes))) != -1) {
-                            fileOutputStream.write(buffer, 0, bytesRead);
-                            remainingBytes -= bytesRead;
-                        }
-                        System.out.println("Encrypted file " + name + " retrieved from the server.");
-                    }
-                } else {
-                    System.out.println("File size is 0 for file: " + name);
+                for(int i=0; i<tamanho; i++){
+                	           
+                	String name = (String)inStream.readObject();
+	                long fileSize = (long) inStream.readObject();
+	                System.out.println("receive filesize");
+	                
+	                if (fileSize == -1) {
+	                    System.out.println("File " + filename + " not found on the server.");
+	                    continue;
+	                }
+	                
+	                if (fileSize > 0) {
+	                    try (FileOutputStream fileOutputStream = new FileOutputStream(name)) {
+	                        byte[] buffer = new byte[1024];
+	                        int bytesRead;
+	                        long remainingBytes = fileSize;
+	                        while (remainingBytes > 0 && (bytesRead = inStream.read(buffer, 0, (int) Math.min(buffer.length, remainingBytes))) != -1) {
+	                            fileOutputStream.write(buffer, 0, bytesRead);
+	                            remainingBytes -= bytesRead;
+	                        }
+	                        System.out.println("Encrypted file " + name + " retrieved from the server.");
+	                    }
+	                } else {
+	                    System.out.println("File size is 0 for file: " + name);
+	                }
                 }
             }
         } catch (IOException e) {
