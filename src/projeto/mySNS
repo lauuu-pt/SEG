@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Compile the Java Source File
+javac "src/mySNS.java"
+
+# Execute the compiled class file with provided arguments
+java -cp src "mySNS" "{@:4}"

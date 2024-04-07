@@ -7,23 +7,24 @@ import java.util.*;
 public class mySNSServer {
     public static void main(String[] args) {
     	
-        System.out.println("Servidor: main");
+        System.out.println("Servidor aberto!");
 		var server = new mySNSServer();
 		server.startServer();
     }
     
     public void startServer() {
+    	
         try (var sSoc = new ServerSocket(23456)) {
             while (true) {
                 try {
                     var inSoc = sSoc.accept();
                     var newServerThread = new ServerThread(inSoc);
                     newServerThread.start();
-                } catch (IOException e) {
+                } catch (IOException e) { // Exceção para lidar com problemas de Input/Output (I/O).
                     e.printStackTrace();
                 }
             }
-        } catch (IOException e) {
+        } catch (IOException e) { // Exceção para lidar com problemas de Input/Output (I/O).
             e.printStackTrace();
         }
     }
@@ -33,7 +34,7 @@ public class mySNSServer {
         private Socket socket;
         ServerThread(Socket inSoc) {
             socket = inSoc;
-            System.out.println("Thread do servidor para cada cliente");
+            System.out.println("Thread do servidor para cada cliente.");
         }
         
         public void run() {
@@ -49,36 +50,39 @@ public class mySNSServer {
                     user = (String) inStream.readObject();
                     bool = (Boolean) inStream.readObject();
                     
-                    System.out.println("Thread: depois de receber  o usuário");
-                } catch (ClassNotFoundException e1) {
+                    System.out.println("Thread - depois de receber  o usuário");
+                    
+                } catch (ClassNotFoundException e1) { // Lida com exceção no caso da classe não existir.
                     e1.printStackTrace();
                 }
-                outStream.writeObject(true); // Sending acknowledgment to the client
+                outStream.writeObject(true);
                 
                 if(!bool) {
-                    // Create a directory based on the username
-                    var userDirectory = new File("/home/aluno-di/eclipse-workspace/SEG/src/projeto/server", user); // Assuming "user_files" is the parent directory
-                    System.out.println("User directory path: " + userDirectory.getAbsolutePath());
+                	
+                    // Cria um diretorio baseado no username dado pela variavel "user".
+                    var userDirectory = new File("/home/aluno-di/eclipse-workspace/SEG/src/projeto/server", user);
+                    System.out.println("Diretorio do utilizador: " + userDirectory.getAbsolutePath());
     
-                    if (!userDirectory.exists()) {
-                        System.out.println("User directory path: " + userDirectory.getAbsolutePath());
-
-                        if (userDirectory.mkdirs()) {
-                            System.out.println("Created directory for user: " + user);
+                    if (!userDirectory.exists()) { // Se o diretorio não existir
+                        System.out.println("Diretorio do utilizador: " + userDirectory.getAbsolutePath());
+                        
+                        if (userDirectory.mkdirs()) { // Cria diretorio para o utilizador.
+                            System.out.println("Criado um diretorio para o utilizador " + user);
+                            
                         } else {
-                            System.out.println("Failed to create directory for user: " + user);
+                            System.out.println("Não foi possivel criar o diretorio para o utilizador " + user);
                         }
                     }
     
-                    boolean allFilesReceived = true; // Track if all files were received successfully
+                    boolean allFilesReceived = true; // Verifica se todos os ficheiros foram recebidos com sucesso.
     
-                    // Receive and store files in the user directory
+                    // Recebe e guarda os ficheiros no diretorio do utilizador.
                     try {
-                    	
                         while (true) {
                             Long fileSize = (Long) inStream.readObject();
-                            if (fileSize == -1) { // End of file transfer
-                                System.out.println("Client finished sending files.");
+                            
+                            if (fileSize == -1) { // Fim da transferência de ficheiros cliente-servidor.
+                                System.out.println("Cliente acabou de enviar os ficheiros.");
                                 break;
                             }
                             
@@ -94,29 +98,31 @@ public class mySNSServer {
                                     outFile.write(buffer, 0, bytesRead);
                                     remainingBytes -= bytesRead;
                                 }
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                                allFilesReceived = false; // Mark that not all files were received successfully
+                            } catch (IOException e) { // Exceção para lidar com problemas de Input/Output (I/O).
+                                e.printStackTrace();                                 
+                                allFilesReceived = false; // Nem todos os ficheiros foram recebidos com sucesso.
                             }
     
-                            System.out.println("End of file: " + filename);
+                            System.out.println("Fim do ficheiro " + filename);
                         }
     
     
                     } catch (EOFException e) {
-                        // Client disconnected prematurely
-                        System.err.println("Client disconnected before all files were received.");
-                        allFilesReceived = false; // Mark that not all files were received successfully
+                    	
+                        // Cliente desconectou abruptamente
+                        System.err.println("Cliente desconectado antes de todos os ficheiros terem sido recebidos.");
+                        
+                        allFilesReceived = false; // Nem todos os ficheiros foram recebidos com sucesso.
                     } catch (ClassNotFoundException e1) {
                         e1.printStackTrace();
-                        allFilesReceived = false; // Mark that not all files were received successfully
+                        allFilesReceived = false; // Nem todos os ficheiros foram recebidos com sucesso.
                     }
     
-                    // Send acknowledgment based on the status of file reception
-                    outStream.writeObject(allFilesReceived); // Sending acknowledgment to the client
-                    System.out.println("Server acknowledges successful file transfer: " + allFilesReceived);
+                    // Manda reconhecimento para o cliente que todos os ficheiros foram recebidos.
+                    outStream.writeObject(allFilesReceived); 
+                    System.out.println("Servidor reconhece que todos os ficheiros foram recebidos? " + allFilesReceived);
+                    
                 } else {
-    
                     int lenFicheiros = (int)inStream.readObject();
                     for(int i = 0; i < lenFicheiros; i++){
                         List<File> FilesServer = new ArrayList<File>();
@@ -124,7 +130,7 @@ public class mySNSServer {
                         var Diretorio  = new File("/home/aluno-di/eclipse-workspace/SEG/src/projeto/server", user);
                         File[] files = Diretorio.listFiles();
                         
-                        // Itera sobre os arquivos e verifica se começam com o padrão
+                        // Itera sobre os arquivos e verifica se começam com o nome do ficheiro
                         if (files != null) {
                             for (File file : files) {
                                 if (file.isFile() && file.getName().startsWith(nomeFicheiro)){
@@ -157,10 +163,9 @@ public class mySNSServer {
                 if (e instanceof EOFException) {
                     System.err.println("O cliente encerrou abruptamente a conexão.");
                 } else if (e instanceof SocketException) {
-                    System.err.println("Erro de soquete: " + e.getMessage());
+                    System.err.println("Erro de socket: " + e.getMessage());
                 }
             } catch (ClassNotFoundException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			} finally {
                 try {
