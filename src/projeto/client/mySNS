@@ -1,6 +1,0 @@
-#!/bin/src
-
-# Compile the Java Source File
-javac "src/projeto/mySNS.java"
-
-java -cp src "mySNS" "{@:4}"
