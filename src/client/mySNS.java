@@ -116,7 +116,7 @@ public class mySNS {
                         deleteFiles(filenames, userUsernamee, doctorUsername);
                         break;
                     case "-se":
-                        //metodose(hostname, port, filenames, doctorUsername, userUsernamee);
+                        metodose(hostname, port, filenames, doctorUsername, userUsernamee);
                         break;
                     default:
                         System.out.println("Invalid command: " + command);
@@ -171,13 +171,13 @@ public class mySNS {
                     continue; 
                 }
 
-                
-                /*File cifradoFile = new File(filename + ".cifrado");
+                /*
+                File cifradoFile = new File(filename + ".cifrado");
                 if (cifradoFile.exists()) {
                     System.out.println("File " + cifradoFile.getName() + " already exists on the server. Skipping...");
                     continue; 
                 }
-
+                
                 
                 File keyFile = new File(filename + ".chave_secreta." + userUsername);
                 if (keyFile.exists()) {
@@ -253,43 +253,144 @@ public class mySNS {
 	
     
 
-	/*private static void metodose(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) throws IOException, UnrecoverableKeyException, InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException {
-  
-		for (String filename : filenames) {
-	
-		    File file = new File(filename);
-		    if (!file.exists()) {
-		        System.out.println("O arquivo " + filename + " não existe localmente. Ignorando...");
-		        continue; 
-		    }
+    private static void metodose(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
 
-		    
-		    File secureFile = new File(filename + ".seguro");
-		    if (secureFile.exists()) {
-		        System.out.println("O arquivo " + secureFile.getName() + " já existe no servidor. Ignorando...");
-		        continue; 
-		    }
+        List<String> seFiles = new ArrayList<>();
 
-		    
-		    String secureFileName = filename + ".seguro";
+        for (String filename : filenames) {
 
-		   
-		    encryptAndSignFile(file, secureFileName, userUsername, doctorUsername);
+            File file = new File(filename);
+            if (!file.exists()) {
+                System.out.println("O ficheiro " + filename + " não existe localmente. Ignorando...");
+                continue; 
+            }
 
-		    
-		    sendFilesToServer(new String[]{secureFileName}, userUsername);
 
-		    String signatureFileName = filename + ".assinatura." + doctorUsername;
-		    signFile(file, signatureFileName);
-		    sendFilesToServer(new String[]{signatureFileName}, userUsername);
+            File secureFile = new File(filename + ".seguro");
+            if (secureFile.exists()) {
+                System.out.println("O ficheiro " + secureFile.getName() + " já existe no servidor. Ignorando...");
+                continue; 
+            }
 
-		    List<String> encryptedFiles = new ArrayList<>();
-		    encryptedFiles.add(filename);
-		    sendFilesToServer(encryptedFiles.toArray(new String[0]), userUsername);
+            envelopesSeguros(userUsername, filename, doctorUsername);
 
-		    System.out.println("O arquivo " + filename + " foi cifrado, assinado e enviado para o servidor com sucesso.");
+
+            seFiles.add(filename);
+            
+            System.out.println("O ficheiro " + filename + " foi cifrado, assinado e enviado para o servidor com sucesso. ->" + filename+".seguro");
+        }
+        sendFilesToServer3(seFiles.toArray(new String[0]), userUsername, doctorUsername);
+        try {
+			socket.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-    }*/
+    }
+
+     private static void sendFilesToServer3(String[] filenames, String userUsername, String doctorUsername) {
+    	 try {
+             ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+             ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+             
+             
+             outStream.writeObject(userUsername);
+             
+             outStream.writeObject(false);
+            
+             
+             
+             
+      
+             for (String filename : filenames) {
+              
+
+                 // Send .key file
+                 File keyFile = new File(filename + ".chave_secreta." + userUsername);
+                 Long fileSize = keyFile.length();
+                 outStream.writeObject(fileSize); 
+                 outStream.writeObject(filename + ".chave_secreta." + userUsername); 
+                 try (BufferedInputStream keyFileB = new BufferedInputStream(new FileInputStream(keyFile))) {
+                     byte[] buffer = new byte[1024];
+                     int bytesRead;
+                     while ((bytesRead = keyFileB.read(buffer, 0, 1024)) > 0) {
+                         outStream.write(buffer, 0, bytesRead);
+                     }
+                 }
+                 File assinaturaFile = new File(filename+".cifrado.assinatura."+doctorUsername);
+                 fileSize = assinaturaFile.length();
+                 outStream.writeObject(fileSize); 
+                 outStream.writeObject(filename+".assinatura."+doctorUsername); 
+                 try (BufferedInputStream assinaturaFileB = new BufferedInputStream(new FileInputStream(assinaturaFile))) {
+                     byte[] buffer = new byte[1024];
+                     int bytesRead;
+                     while ((bytesRead = assinaturaFileB.read(buffer, 0, 1024)) > 0) {
+                         outStream.write(buffer, 0, bytesRead);
+                     }
+                 }
+                 File seguroFile = new File(filename+".cifrado.assinado");
+                 fileSize = seguroFile.length();
+                 outStream.writeObject(fileSize); 
+                 outStream.writeObject(filename+".seguro"); 
+                 try (BufferedInputStream seguroFileB = new BufferedInputStream(new FileInputStream(seguroFile))) {
+                     byte[] buffer = new byte[1024];
+                     int bytesRead;
+                     while ((bytesRead = seguroFileB.read(buffer, 0, 1024)) > 0) {
+                         outStream.write(buffer, 0, bytesRead);
+                     }
+                 }
+
+                 
+             }
+             outStream.writeObject(-1L); 
+             outStream.flush(); // Flush the stream to ensure all data is sent
+
+             
+             Boolean acknowledgment = (Boolean) inStream.readObject();
+             System.out.println("Server acknowledgment: " + acknowledgment);
+
+             
+             inStream.close();
+             outStream.close();
+
+             
+             socket.close();
+             System.out.println("Connection closed.");
+
+             } catch (IOException | ClassNotFoundException e) {
+             System.err.println("Error sending files to the server: " + e.getMessage());
+         }
+     }
+	
+
+	/**
+     
+Método para realizar operações do metodo -se.*/
+  private static void envelopesSeguros(String userUsername, String filename, String doctorUsername) {
+      KeyGenerator kg;
+      try {
+          kg = KeyGenerator.getInstance("AES");
+          kg.init(128);
+          SecretKey aesKey = kg.generateKey();
+          try {
+              encryptFileWithAES(filename, aesKey);
+              try {
+				encryptAESKeyWithRSA(aesKey, userUsername, filename);
+			} catch (NoSuchPaddingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IllegalBlockSizeException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+              } catch (IOException e) {
+              e.printStackTrace();}
+          signFile(filename + ".cifrado", doctorUsername);
+
+
+      } catch (NoSuchAlgorithmException | UnrecoverableKeyException | InvalidKeyException | KeyStoreException | CertificateException | SignatureException | IOException e) {
+          e.printStackTrace();}}
+
     
     private static void signFile(String file, String doctorUsername) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, SignatureException, InvalidKeyException {
 
