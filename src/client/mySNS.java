@@ -35,7 +35,11 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 
 public class mySNS {
-
+	/*Membros do grupo:
+	Laura Tomás (58641)
+	Maria Beatriz Guerreiro (58643)
+	Maria Rita Gonçalves (58659)*/
+	
     private static Socket socket;
 
     
@@ -52,7 +56,7 @@ public class mySNS {
         String serverAddress = args[1];
         String[] addressParts = serverAddress.split(":");
         if (addressParts.length != 2) {
-            System.out.println("enderco invalido. Usar: hostname:port");
+            System.out.println("endereco invalido. Usar: hostname:port");
             return;
         }
 

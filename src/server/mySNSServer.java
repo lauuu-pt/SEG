@@ -15,14 +15,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class mySNSServer {
-
+	/*Membros do grupo:
+	Laura Tomás (58641)
+	Maria Beatriz Guerreiro (58643)
+	Maria Rita Gonçalves (58659)*/
 	
 	/**
      * Método principal para iniciar o servidor mySNS.
      * @param args Argumentos da linha de comando.
      */
     public static void main(String[] args) {
-        System.out.println("Servidor: main");
+        System.out.println("Servidor aberto");
         var server = new mySNSServer();
         server.startServer();
     }
@@ -78,7 +81,7 @@ public class mySNSServer {
                 try {
                     user = (String) inStream.readObject();
                     bool = (Boolean) inStream.readObject();
-                    System.out.println("Thread: depois de receber  o usuário");
+                    System.out.println("Thread: depois de receber o utilizador");
                 } catch (ClassNotFoundException e1) {
                     e1.printStackTrace();
                 }
@@ -87,16 +90,16 @@ public class mySNSServer {
                 if(!bool) {
 	                
 	                var userDirectory = new File("/home/aluno-di/eclipse-workspace/SEG/src/server", user);
-	                System.out.println("User directory path: " + userDirectory.getAbsolutePath());
+	                System.out.println("Diretorio do utilizador: " + userDirectory.getAbsolutePath());
 	
 	                if (!userDirectory.exists()) {
-	                	System.out.println("User directory path: " + userDirectory.getAbsolutePath());
+	                	System.out.println("Diretorio do utilizador: " + userDirectory.getAbsolutePath());
 	
 	                	
 	                    if (userDirectory.mkdirs()) {
-	                        System.out.println("Created directory for user: " + user);
+	                        System.out.println("Criado um diretorio para o utilizador: " + user);
 	                    } else {
-	                        System.out.println("Failed to create directory for user: " + user);
+	                        System.out.println("Erro a criar diretorio: " + user);
 	                    }
 	                }
 	
@@ -108,7 +111,7 @@ public class mySNSServer {
 	                	while (true) {
 	                	    Long fileSize = (Long) inStream.readObject();
 	                	    if (fileSize == -1) {
-	                	        System.out.println("Client finished sending files.");
+	                	        System.out.println("O cliente acabou de enviar os ficheiros.");
 	                	        break;
 	                	    }
 	                	    
@@ -131,13 +134,13 @@ public class mySNSServer {
 	                	        allFilesReceived = false;
 	                	    }
 	
-	                	    System.out.println("End of file: " + filename);
+	                	    System.out.println("Fim do ficheiro: " + filename);
 	                	}
 	
 	
 	                } catch (EOFException e) {
 	                
-	                    System.err.println("Client disconnected before all files were received.");
+	                    System.err.println("Cliente desconectou do servidor.");
 	                    allFilesReceived = false; 
 	                } catch (ClassNotFoundException e1) {
 	                    e1.printStackTrace();
@@ -146,7 +149,7 @@ public class mySNSServer {
 	
 	                
 	                outStream.writeObject(allFilesReceived); 
-	                System.out.println("Server acknowledges successful file transfer: " + allFilesReceived);
+	                System.out.println("Transferencia dos ficheiros do servidor reconhecida: " + allFilesReceived);
                 } else {
                 	
                 	int lenFicheiros = (int)inStream.readObject();
@@ -157,7 +160,7 @@ public class mySNSServer {
                   		List<File> FilesServer = new ArrayList<File>();
                 		String nomeFicheiro = (String) inStream.readObject();
                 		System.out.println(nomeFicheiro);
-                		var Diretorio  = new File("/home/aluno-di/eclipse-workspace/SEG/src/projeto/server", user);
+                		var Diretorio  = new File("/home/aluno-di/eclipse-workspace/SEG/src/server", user);
                 		File[] files = Diretorio.listFiles();
                 		
                 		// Itera sobre os arquivos e verifica se começam com o padrão
@@ -191,7 +194,7 @@ public class mySNSServer {
 	                if (e instanceof EOFException) {
 	                    System.err.println("O cliente encerrou abruptamente a conexão.");
 	                } else if (e instanceof SocketException) {
-	                    System.err.println("Erro de soquete: " + e.getMessage());
+	                    System.err.println("Erro de socket: " + e.getMessage());
 	                }
 	            } finally {
 	                try {

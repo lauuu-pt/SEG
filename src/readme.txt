@@ -1,10 +1,11 @@
-Membros do grupo:
+Membros do grupo005:
 Laura Tomás (58641)
 Maria Beatriz Guerreiro (58643)
 Maria Rita Gonçalves (58659)
 
 
-
+medicos: alice e jose
+utentes: bob e maria
 
 
 
