@@ -76,12 +76,15 @@ public class mySNS {
             if (args.length >= 6 && args[4].equals("-g")) {
                 System.out.println("Vale");
                 if (args.length > 6) {
+                
                     String[] filenames = new String[args.length - 5];
-                    System.arraycopy(args, 5, filenames, 0, filenames.length);
-                    
+                    for(int i=5;i<filenames.length;i++) {
+                    	System.arraycopy(args, 5, filenames, 0, filenames.length);
+                    }
                     for (String filename : filenames) {
                         System.out.println("Filename: " + filename);
                         try {
+                        	System.out.println(filenames);
 							getFilesFromServer(new String[] { filename }, userUsername);
 						} catch (ClassNotFoundException e) {
 							e.printStackTrace();
@@ -670,7 +673,7 @@ public class mySNS {
             
         	outStream.writeObject(userUsername);   
         	outStream.writeObject(true);
-
+        	
             for (String filename : filenames) {
                 
                 outStream.writeObject(filename);
@@ -699,7 +702,7 @@ public class mySNS {
                         System.out.println("Encrypted file " + name + " retrieved from the server.");
                         filesList.add(name);
                     }
-                    metodog(filesList.toArray(new String[0]));
+                    //metodog(filesList.toArray(new String[0]));
                     System.out.println("testando");
                 } else {
                     System.out.println("File size is 0 for file: " + name);

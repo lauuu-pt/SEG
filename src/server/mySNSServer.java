@@ -148,11 +148,15 @@ public class mySNSServer {
 	                outStream.writeObject(allFilesReceived); 
 	                System.out.println("Server acknowledges successful file transfer: " + allFilesReceived);
                 } else {
-
+                	
                 	int lenFicheiros = (int)inStream.readObject();
+                	System.out.println(lenFicheiros);
+                	
                 	for(int i = 0; i<lenFicheiros; i++){
+                		
                   		List<File> FilesServer = new ArrayList<File>();
                 		String nomeFicheiro = (String) inStream.readObject();
+                		System.out.println(nomeFicheiro);
                 		var Diretorio  = new File("/home/aluno-di/eclipse-workspace/SEG/src/projeto/server", user);
                 		File[] files = Diretorio.listFiles();
                 		
