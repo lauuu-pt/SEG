@@ -12,19 +12,26 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 public class mySNSServer {
 
-    public static void main(String[] args) throws IOException {
+	
+	/**
+     * Método principal para iniciar o servidor mySNS.
+     * @param args Argumentos da linha de comando.
+     */
+    public static void main(String[] args) {
         System.out.println("Servidor: main");
         var server = new mySNSServer();
         server.startServer();
     }
 
-    public void startServer() throws IOException {
+    
+    /**
+     * Método para iniciar o servidor.
+     */
+    public void startServer(){
         try (var sSoc = new ServerSocket(23456)) {
             while (true) {
                 try {
@@ -35,28 +42,42 @@ public class mySNSServer {
                     e.printStackTrace();
                 }
             }
-        }
+        } catch (IOException e1) {
+			e1.printStackTrace();
+		}
     }
 
+    
+    /**
+     * Classe interna que implementa uma thread do servidor para cada cliente.
+     */
     class ServerThread extends Thread {
         private Socket socket;
 
+        
+        /**
+         * Construtor da classe ServerThread.
+         * @param inSoc Socket para a conexão do cliente.
+         */
         ServerThread(Socket inSoc) {
             socket = inSoc;
             System.out.println("Thread do servidor para cada cliente");
         }
 
+        
+        /**
+         * Método que executa a thread do servidor.
+         */
         public void run() {
             try (var outStream = new ObjectOutputStream(socket.getOutputStream());
                  var inStream = new ObjectInputStream(socket.getInputStream())) {
 
                 String user = null;
                 Boolean bool = null;
+                
                 try {
                     user = (String) inStream.readObject();
                     bool = (Boolean) inStream.readObject();
-                    
-                    
                     System.out.println("Thread: depois de receber  o usuário");
                 } catch (ClassNotFoundException e1) {
                     e1.printStackTrace();
@@ -127,49 +148,41 @@ public class mySNSServer {
 	                outStream.writeObject(allFilesReceived); 
 	                System.out.println("Server acknowledges successful file transfer: " + allFilesReceived);
                 } else {
-                	try {
-                		var userDirectory = new File("/home/aluno-di/eclipse-workspace/SEG/src/server", user);
-                		String filename = (String) inStream.readObject();
-                		File file = new File(filename);
-                		System.out.println("AAAAAAAAAAAAAAAAA");
-                			String prefix = filename;
-                			List<File> filesFound = new ArrayList<>();
-                			File[] files = userDirectory.listFiles();
-                			System.out.println("BBBBBBBBBBBB");
-                			for (File f : files) {
-                		        
-                		        if (f.getName().startsWith(prefix)) {
-                		            
-                		            filesFound.add(f);
-                		            System.out.println("CCCCCCCCCCCCC");
-                		        }
-                		    }
-                			for (File fi: filesFound) {
-                			    
-                			    outStream.writeObject(fi.getName());
-                			    System.out.println(fi.getName());
-                			    
-                			    outStream.writeObject(fi.length());
-                			    System.out.println(fi.length());
-                			    
-                			    try (BufferedInputStream myFileB = new BufferedInputStream(new FileInputStream(fi))) {
-                			        byte[] buffer = new byte[1024];
-                			        int bytesRead;
-                			        while ((bytesRead = myFileB.read(buffer)) != -1) {
-                			            outStream.write(buffer, 0, bytesRead);
-                			            System.out.println("FFFFFFFFFFFF");
-                			        }
-                			    }
-                			}
 
-                			outStream.close();
-                			inStream.close();
-            		    
-                	} catch(Exception e ){
+                	int lenFicheiros = (int)inStream.readObject();
+                	for(int i = 0; i<lenFicheiros; i++){
+                  		List<File> FilesServer = new ArrayList<File>();
+                		String nomeFicheiro = (String) inStream.readObject();
+                		var Diretorio  = new File("/home/aluno-di/eclipse-workspace/SEG/src/projeto/server", user);
+                		File[] files = Diretorio.listFiles();
                 		
-                	}
-                }
-	            } catch (IOException e) {
+                		// Itera sobre os arquivos e verifica se começam com o padrão
+                        if (files != null) {
+                            for (File file : files) {
+                                if (file.isFile() && file.getName().startsWith(nomeFicheiro)){
+                                	FilesServer.add(file);
+                                }
+                            }
+                            
+                            outStream.writeObject(FilesServer.size());
+                            
+                            for(int j =0; j<FilesServer.size(); j++) {
+                            	outStream.writeObject(FilesServer.get(j).getName());
+                            	outStream.writeObject(FilesServer.get(j).length());
+                            	
+                            	 try (BufferedInputStream cifradoFileB = new BufferedInputStream(new FileInputStream(FilesServer.get(j)))) {
+                                     byte[] buffer = new byte[1024];
+                                     int bytesRead;
+                                     while ((bytesRead = cifradoFileB.read(buffer, 0, 1024)) > 0) {
+                                    	 outStream.write(buffer, 0, bytesRead);
+                                     }
+                                 }
+                            }
+                            
+                        } else {
+                        	System.out.println("O caminho especificado não é um diretório.");
+                        }
+                	}}}catch (IOException | ClassNotFoundException e) {
 	                System.err.println("Erro na comunicação com o cliente: " + e.getMessage());
 	                if (e instanceof EOFException) {
 	                    System.err.println("O cliente encerrou abruptamente a conexão.");

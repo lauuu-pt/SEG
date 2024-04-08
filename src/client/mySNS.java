@@ -11,6 +11,7 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
+import java.security.Key;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -22,8 +23,11 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
@@ -34,7 +38,12 @@ public class mySNS {
 
     private static Socket socket;
 
-    public static void main(String[] args) throws InterruptedException, ClassNotFoundException, UnrecoverableKeyException, InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException {
+    
+    /**
+     * Método principal para iniciar o cliente mySNS.
+     * @param args Argumentos da linha de comando.
+     */
+    public static void main(String[] args){
         if (args.length < 6 || !args[0].equals("-a") ) {
             System.out.println("Usage: java mySNS -a <serverAddress> -m <doctorUsername> -u <userUsername> [-sc <filenames>] [-sa <filenames>] [-se <filenames>] [-g <filenames>]\nou\nUsage: java mySNS -a <serverAddress> -u <username do utente> -g {<filenames>}+");
             return;
@@ -72,12 +81,16 @@ public class mySNS {
                     
                     for (String filename : filenames) {
                         System.out.println("Filename: " + filename);
-                        getFilesFromServer(new String[] { filename }, userUsername);
+                        try {
+							getFilesFromServer(new String[] { filename }, userUsername);
+						} catch (ClassNotFoundException e) {
+							e.printStackTrace();
+						}
                     }
                 } else if (args.length == 6) {
                     String filename = args[5];
                     System.out.println("Filename1: " + filename);
-                    getFilesFromServer(new String[] { filename }, userUsername);
+                    getFilesFromServer(new String[] {filename}, userUsername);
                 } else {
                     System.out.println("No filenames provided.");
                 }
@@ -117,6 +130,7 @@ public class mySNS {
                         break;
                     case "-se":
                         metodose(hostname, port, filenames, doctorUsername, userUsernamee);
+                        deleteFiles(filenames, userUsernamee, doctorUsername);
                         break;
                     default:
                         System.out.println("Invalid command: " + command);
@@ -130,36 +144,58 @@ public class mySNS {
             System.err.println("Error connecting to the server. Unknown server address: " + hostname);
         } catch (IOException e) {
             System.err.println("Error connecting to the server: " + e.getMessage());
-        }
+        } catch (ClassNotFoundException e) {
+			e.printStackTrace();
+		}
     }
 
+    
+    /**
+     * Método para deletar arquivos cifrados e chaves secretas associadas.
+     * 
+     * @param filenames   Nomes dos arquivos a serem deletados.
+     * @param userUsername  Nome de usuário do usuário.
+     */
     private static void deleteFiles(String[] filenames,String userUsername,String doctorUsername) {
-    	 for (String filename : filenames) {
-    	        File cifradoFile = new File(filename + ".cifrado");
-    	        File keyFile = new File(filename + ".chave_secreta." + userUsername);
-    	        File signedFile = new File(filename + ".assinado");
-    	        File signature = new File(filename + ".assinatura." + doctorUsername);
-    	        
+   	 for (String filename : filenames) {
+   	        File cifradoFile = new File(filename + ".cifrado");
+   	        File keyFile = new File(filename + ".chave_secreta." + userUsername);
+   	        File signedFile = new File(filename + ".assinado");
+   	        File signature = new File(filename + ".assinatura." + doctorUsername);
+   	        File cifradoAss = new File(filename + ".cifrado.assinado");
+   	        File CifAss = new File(filename + ".cifrado.assinatura." + doctorUsername);
 
-    	        if (cifradoFile.exists()) {
-    	            cifradoFile.delete();
-    	            
-    	        }
-    	        if (keyFile.exists()) {
-    	            keyFile.delete();
-    	            
-    	        }
-    	        if (signedFile.exists()) {
-    	            signedFile.delete();
-    	            
-    	        }
-    	        if (signature.exists()) {
-    	            signature.delete();
-    	            
-    	        }
-    	    }
+   	        if (cifradoFile.exists()) {
+   	            cifradoFile.delete();
+   	        }
+   	        if (keyFile.exists()) {
+   	            keyFile.delete();
+   	        }
+   	        if (signedFile.exists()) {
+   	            signedFile.delete();
+   	        }
+   	        if (signature.exists()) {
+   	            signature.delete(); 
+   	        }
+   	        if (cifradoAss.exists()) {
+   	        	cifradoAss.delete(); 
+   	        }
+   	        if (CifAss.exists()) {
+   	        	CifAss.delete(); 
+   	        }
+   	    }
 	}
 
+    
+    /**
+     * Método para executar o comando "-sc" (cifra o ficheiro) no cliente mySNS.
+     * 
+     * @param hostname       Nome do host do servidor.
+     * @param port           Número da porta do servidor.
+     * @param filenames      Nomes dos arquivos a serem cifrados.
+     * @param doctorUsername Nome de usuário do médico.
+     * @param userUsername   Nome de usuário do usuário.
+     */
     private static void metodosc(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
         List<String> encryptedFiles = new ArrayList<>();
         try {
@@ -208,6 +244,15 @@ public class mySNS {
     }
 
     
+    /**
+     * Método para executar o comando "-sa" (Assina ficheiro)
+     * 
+     * @param hostname       Nome do host do servidor.
+     * @param port           Número da porta do servidor.
+     * @param filenames      Nomes dos arquivos a serem Assinados.
+     * @param doctorUsername Nome de usuário do médico.
+     * @param userUsername   Nome de usuário do usuário.
+     */
     private static void metodosa(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
     	List<String> signedFiles = new ArrayList<>();
     	try {
@@ -219,25 +264,10 @@ public class mySNS {
 			        continue; 
 			    }
 			    
-			    /*File signedFile = new File(filename + ".assinado"); // verifica se já foi assinado
-			    if (signedFile.exists()) {
-			        System.out.println("O arquivo " + signedFile.getName() + " já existe no servidor. Ignorando...");
-			        continue; 
-			    }
-			    
-			    File signature = new File(filename + ".assinatura." + doctorUsername); // verifica se já foi assinado
-			    if (signature.exists()) {
-			        System.out.println("O arquivo " + signature.getName() + " já existe no servidor. Ignorando...");
-			        continue; 
-			    }*/
-	
-			    
-	
-			    signFile(filename, doctorUsername); // assina com a assinatura do filename acima
+			    signFile(filename, doctorUsername);
 	
 			   
 			    signedFiles.add(filename);
-			    // envia o ficheiro assinado
 	
 			    System.out.println("O arquivo " + filename + " foi assinado ");
 			    
@@ -252,7 +282,15 @@ public class mySNS {
     }
 	
     
-
+    /**
+     * Método para executar o comando "-se" (Cifra e Assina os ficheiros)
+     * 
+     * @param hostname       Nome do host do servidor.
+     * @param port           Número da porta do servidor.
+     * @param filenames      Nomes dos arquivos a serem Cifrados e Assinados.
+     * @param doctorUsername Nome de usuário do médico.
+     * @param userUsername   Nome de usuário do usuário.
+     */
     private static void metodose(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
 
         List<String> seFiles = new ArrayList<>();
@@ -288,20 +326,17 @@ public class mySNS {
 		}
     }
 
+    
+    
      private static void sendFilesToServer3(String[] filenames, String userUsername, String doctorUsername) {
     	 try {
              ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
              ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
              
              
-             outStream.writeObject(userUsername);
-             
+             outStream.writeObject(userUsername);            
              outStream.writeObject(false);
-            
-             
-             
-             
-      
+                   
              for (String filename : filenames) {
               
 
@@ -363,35 +398,44 @@ public class mySNS {
      }
 	
 
-	/**
-     
-Método para realizar operações do metodo -se.*/
-  private static void envelopesSeguros(String userUsername, String filename, String doctorUsername) {
-      KeyGenerator kg;
-      try {
-          kg = KeyGenerator.getInstance("AES");
-          kg.init(128);
-          SecretKey aesKey = kg.generateKey();
-          try {
-              encryptFileWithAES(filename, aesKey);
-              try {
+
+     /**
+      * Método chamado em metodog para criar envelopes de segurança para um arquivo.
+      * 
+      * @param userUsername    O nome de usuário do destinatário.
+      * @param filename        O nome do arquivo a ser envolvido.
+      * @param doctorUsername  O nome de usuário do médico responsável pela assinatura.
+      */
+     private static void envelopesSeguros(String userUsername, String filename, String doctorUsername) {
+    	 KeyGenerator kg;
+	     try {
+	         kg = KeyGenerator.getInstance("AES");
+	         kg.init(128);
+	         SecretKey aesKey = kg.generateKey();
+	         try {
+	             encryptFileWithAES(filename, aesKey);
+	             try {
 				encryptAESKeyWithRSA(aesKey, userUsername, filename);
 			} catch (NoSuchPaddingException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			} catch (IllegalBlockSizeException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
-			}
-              } catch (IOException e) {
-              e.printStackTrace();}
-          signFile(filename + ".cifrado", doctorUsername);
-
-
-      } catch (NoSuchAlgorithmException | UnrecoverableKeyException | InvalidKeyException | KeyStoreException | CertificateException | SignatureException | IOException e) {
-          e.printStackTrace();}}
+				}
+	        } catch (IOException e) {
+	             e.printStackTrace();}
+	         signFile(filename + ".cifrado", doctorUsername);
+		
+	     } catch (NoSuchAlgorithmException | UnrecoverableKeyException | InvalidKeyException | KeyStoreException | CertificateException | SignatureException | IOException e) {
+	          e.printStackTrace();}}
 
     
+     
+     /**
+      * Método para assinar um arquivo com a chave privada do médico.
+      * 
+      * @param file           Nome do arquivo a ser assinado.
+      * @param doctorUsername Nome de usuário do médico.
+      */
     private static void signFile(String file, String doctorUsername) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, SignatureException, InvalidKeyException {
 
     	FileInputStream fis = new FileInputStream(file);
@@ -425,15 +469,15 @@ Método para realizar operações do metodo -se.*/
 
 
     }
-
- 
-    private static void encryptAndSignFile(File file, String secureFileName, String userUsername, String doctorUsername) {
-    
-    }
-
-    
     
    
+    /**
+     * Método para cifrar uma chave AES com uma chave pública RSA e salvar no disco.
+     * 
+     * @param aesKey       A chave AES a ser cifrada.
+     * @param userUsername Nome de usuário do usuário.
+     * @param filename     Nome do arquivo onde a chave cifrada será salva.
+     */
     private static void encryptAESKeyWithRSA(SecretKey aesKey, String userUsername, String filename) throws FileNotFoundException, IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException {
         try (FileOutputStream kos = new FileOutputStream(filename + ".chave_secreta." + userUsername)) {
             FileInputStream kfile = new FileInputStream("keystore." + userUsername);
@@ -451,6 +495,13 @@ Método para realizar operações do metodo -se.*/
         }
     }
 
+    
+    /**
+     * Método para cifrar um arquivo usando AES e salvar no disco.
+     * 
+     * @param filename Nome do arquivo a ser cifrado.
+     * @param aesKey   A chave AES usada para cifrar o arquivo.
+     */
     private static void encryptFileWithAES(String filename, SecretKey aesKey) throws FileNotFoundException, IOException {
         try (FileInputStream fis = new FileInputStream(filename);
              FileOutputStream fos = new FileOutputStream(filename + ".cifrado");
@@ -466,6 +517,13 @@ Método para realizar operações do metodo -se.*/
         System.out.println("File encrypted: " + filename + " -> " + filename + ".cifrado");
     }
 
+    
+    /**
+     * Método para obter uma instância do Cipher AES.
+     * 
+     * @param aesKey A chave AES usada para inicializar o Cipher.
+     * @return O objeto Cipher configurado para criptografar com AES.
+     */
     private static Cipher getAESCipher(SecretKey aesKey) throws IOException {
         try {
             Cipher c = Cipher.getInstance("AES");
@@ -485,10 +543,6 @@ Método para realizar operações do metodo -se.*/
             outStream.writeObject(userUsername);
             
             outStream.writeObject(false);
-           
-            
-            
-            
      
             for (String filename : filenames) {
              
@@ -600,7 +654,16 @@ Método para realizar operações do metodo -se.*/
     }
     
     
+    /**
+     * Método para receber arquivos do servidor.
+     * 
+     * @param filenames     Nomes dos arquivos a serem recebidos.
+     * @param userUsername  Nome de usuário do usuário.
+     */
     private static void getFilesFromServer(String[] filenames, String userUsername) throws ClassNotFoundException {
+    	
+        List<String> filesList = new ArrayList<>();
+    	
         try (ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
              ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream())) {
 
@@ -623,7 +686,6 @@ Método para realizar operações do metodo -se.*/
                     System.out.println("File " + filename + " not found on the server.");
                     continue;
                 }
-                System.out.println("EEEEEEEEEEEEEE");
                 
                 if (fileSize > 0) {
                     try (FileOutputStream fileOutputStream = new FileOutputStream(name)) {
@@ -635,7 +697,10 @@ Método para realizar operações do metodo -se.*/
                             remainingBytes -= bytesRead;
                         }
                         System.out.println("Encrypted file " + name + " retrieved from the server.");
+                        filesList.add(name);
                     }
+                    metodog(filesList.toArray(new String[0]));
+                    System.out.println("testando");
                 } else {
                     System.out.println("File size is 0 for file: " + name);
                 }
@@ -644,4 +709,171 @@ Método para realizar operações do metodo -se.*/
             System.err.println("Error retrieving files from the server: " + e.getMessage());
         }
     }
+    
+    
+    /**
+	 * Método para realizar operações(descifrar e verificar assinatura) em uma lista de arquivos.
+	 * 
+	 * @param filenames Os nomes dos arquivos nos quais as operações serão realizadas.
+	 */
+    private static void metodog(String[] filenames) {
+	       
+    	Pattern padraoC = Pattern.compile("\\.cifrado$");
+    	Pattern padraoA = Pattern.compile("\\.assinado$");
+    	
+    	for (String filename : filenames) { // para cada ficheiro dado no comando
+		    
+		    File file = new File(filename);
+		    if (!file.exists()) {
+		        System.out.println("O ficheiro " + filename + " não existe localmente. Ignorando...");
+		        continue; 
+		    }
+		    
+		    Matcher matcherC = padraoC.matcher(filename);
+		    Matcher matcherA = padraoA.matcher(filename);
+		    
+		    if (matcherC.find()) {
+		    	
+		    	String[] args = filename.split("\\.");
+		    	String userUsername = args[3];
+		    	
+		    	for (String filenameAES : filenames) {
+		    		
+		    		String[] argsAES = filenameAES.split("\\.");
+		    		String AES = argsAES[0] + args[1];
+		    		String extensão = argsAES[2];
+		    		
+		    		if(filename.equals(AES) && !extensão.equals(".cifrado")){		    			
+		    			decifraFile(filename, filenameAES, userUsername);
+		    			break;
+	    			}
+		    	}    	
+		    	
+		    	
+		    } else if (matcherA.find()) {
+		    	
+		    	String[] args = filename.split("\\.");
+		    	String assinatura = args[2];
+		    	
+		    	for (String filenameAss : filenames) {
+		    
+		    		String[] argsAss = filenameAss.split("\\.");
+		    		String nome = argsAss[0] + argsAss[1];
+		    		String extensão = argsAss[2];
+		    		
+		    		if(filename.equals(nome) && !extensão.equals(".assinado")){
+		    			String user = argsAss[3];
+		    			verificaAssinatura(filenameAss, assinatura, user);
+		    			break;
+		    		}
+		    	}	
+		    } 
+    	}
+    }
+    
+    
+    
+    /**
+     * Método para descriptografar um arquivo usando uma chave AES.
+     * 
+     * @param filename    Nome do arquivo cifrado.
+     * @param key         Nome do arquivo contendo a chave secreta.
+     * @param userUsername  Nome de usuário do usuário.
+     */
+    private static void decifraFile(String filename, String key, String userUsername) {
+        try {
+            byte[] keyEncoded = new byte[256];
+            FileInputStream kfile = new FileInputStream(key);
+            kfile.read(keyEncoded);
+            kfile.close();
+
+            // Obter a chave privada da keystore
+            FileInputStream kfile1 = new FileInputStream("keystore." + userUsername); // ver keystore do user
+            KeyStore kstore = KeyStore.getInstance("PKCS12");
+            kstore.load(kfile1, "123456".toCharArray());
+
+            Key myPrivateKey = kstore.getKey(userUsername, "123456".toCharArray());
+
+            // Decifrar chave AES com a chave RSA
+            Cipher c1 = Cipher.getInstance("RSA");
+            c1.init(Cipher.UNWRAP_MODE, myPrivateKey);
+            Key aesKey = c1.unwrap(keyEncoded, "AES", Cipher.SECRET_KEY);
+
+            // Decifrar
+            Cipher c2 = Cipher.getInstance("AES");
+            c2.init(Cipher.DECRYPT_MODE, aesKey);
+
+            FileInputStream fis = new FileInputStream(filename);
+
+            String[] nome = filename.split("\\.");
+            String nomeCOS = nome[0] + nome[1];
+
+            FileOutputStream fos = new FileOutputStream(nomeCOS);
+            CipherInputStream cis = new CipherInputStream(fis, c2);
+
+            byte[] buffer = new byte[1024];
+
+            int i = cis.read(buffer);
+            while (i != -1) { // Quando for igual a -1 chegou ao fim do ficheiro
+                fos.write(buffer, 0, i); // Escrita do ficheiro lido com o tamanho do que lemos
+                i = fis.read(buffer); // Leitura
+            }
+
+            fos.close();
+            cis.close();
+            fis.close();
+        } catch (IOException | KeyStoreException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException | NoSuchPaddingException | InvalidKeyException e) {
+            e.printStackTrace();
+        }
+    }	    
+    
+    
+    /**
+     * Método para verificar a assinatura digital de um arquivo.
+     * 
+     * @param fileName   Nome do arquivo a ser verificado.
+     * @param assinatura Assinatura digital do arquivo.
+     * @param user       Nome de usuário do usuário.
+     */
+    private static void verificaAssinatura(String fileName, String assinatura, String user) {
+    	
+        // Ler a assinatura
+        byte[] assinaturaOriginal = new byte[256];
+        try {
+            FileInputStream kfile = new FileInputStream(fileName);
+            kfile.read(assinaturaOriginal);
+            kfile.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return; 
+        }
+        
+        try {
+            // Ler a chave privada
+            FileInputStream kfile1 = new FileInputStream("keystore" + user);
+            KeyStore kstore = KeyStore.getInstance("PKCS12");
+            kstore.load(kfile1, "123456".toCharArray()); // Lê a keystore com a password dada
+            Certificate cert = kstore.getCertificate(user);
+            
+            // Criar o objeto para criar a assinatura com a chave privada
+            Signature s = Signature.getInstance("SHA256withRSA");
+            s.initVerify(cert);
+                    
+            FileInputStream fis; // Usado para ler o conteudo
+            fis = new FileInputStream(fileName);
+            
+            byte[] b = new byte[1024];  // Leitura
+            int i = fis.read(b);
+            while (i != -1) { // Quando for igual a -1 chegou-se ao fim do ficheiro
+                s.update(b, 0, i);
+                i = fis.read(b); // Leitura
+            }
+            
+            s.verify(assinaturaOriginal);
+            fis.close();
+            
+        } catch (IOException | NoSuchAlgorithmException | CertificateException | KeyStoreException | SignatureException | InvalidKeyException e) {
+            e.printStackTrace();
+        }
+    }    
 }
