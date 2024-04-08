@@ -45,14 +45,14 @@ public class mySNS {
      */
     public static void main(String[] args){
         if (args.length < 6 || !args[0].equals("-a") ) {
-            System.out.println("Usage: java mySNS -a <serverAddress> -m <doctorUsername> -u <userUsername> [-sc <filenames>] [-sa <filenames>] [-se <filenames>] [-g <filenames>]\nou\nUsage: java mySNS -a <serverAddress> -u <username do utente> -g {<filenames>}+");
+            System.out.println("Uso: java mySNS -a <serverAddress> -m <doctorUsername> -u <userUsername> [-sc <filenames>] [-sa <filenames>] [-se <filenames>] [-g <filenames>]\nou\nUsage: java mySNS -a <serverAddress> -u <username do utente> -g {<filenames>}+");
             return;
         }
 
         String serverAddress = args[1];
         String[] addressParts = serverAddress.split(":");
         if (addressParts.length != 2) {
-            System.out.println("Invalid server address format. Use the format: hostname:port");
+            System.out.println("enderco invalido. Usar: hostname:port");
             return;
         }
 
@@ -61,7 +61,7 @@ public class mySNS {
         try {
             port = Integer.parseInt(addressParts[1]);
         } catch (NumberFormatException e) {
-            System.out.println("Port must be an integer.");
+            System.out.println("Porto tem de ser um inteiro");
             return;
         }
 
@@ -70,7 +70,7 @@ public class mySNS {
         try {
             
             socket = new Socket(hostname, port);
-            System.out.println("Connected to the server.");
+            System.out.println("Conectado ao servidor.");
             String userUsername = args[3];
            
             if (args.length >= 6 && args[4].equals("-g")) {
@@ -136,17 +136,17 @@ public class mySNS {
                         deleteFiles(filenames, userUsernamee, doctorUsername);
                         break;
                     default:
-                        System.out.println("Invalid command: " + command);
+                        System.out.println("Comando invalido: " + command);
                 }
             } else {
-                System.out.println("Invalid command or combination of commands.");
+                System.out.println("Comando invalido ou combinacao invalida");
             }
 
 
         } catch (UnknownHostException e) {
-            System.err.println("Error connecting to the server. Unknown server address: " + hostname);
+            System.err.println("Erro ao ligar ao servidor. Edereco desconhecido: " + hostname);
         } catch (IOException e) {
-            System.err.println("Error connecting to the server: " + e.getMessage());
+            System.err.println("Erro ao ligar ao servidor: " + e.getMessage());
         } catch (ClassNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -206,7 +206,7 @@ public class mySNS {
             for (String filename : filenames) {
                 File file = new File(filename);
                 if (!file.exists()) {
-                    System.out.println("File " + filename + " does not exist. Skipping...");
+                    System.out.println("O arquivo " + filename + " não existe localmente. Ignorando...");
                     continue; 
                 }
 
@@ -240,9 +240,9 @@ public class mySNS {
             
 
         } catch (NoSuchAlgorithmException e) {
-            System.err.println("Error generating AES key: " + e.getMessage());
+            System.err.println("Erro ao gerar chave AES: " + e.getMessage());
         } catch (Exception e) {
-            System.err.println("Error: " + e.getMessage());
+            System.err.println("Erro: " + e.getMessage());
         }
     }
 
@@ -259,8 +259,7 @@ public class mySNS {
     private static void metodosa(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
     	List<String> signedFiles = new ArrayList<>();
     	try {
-			for (String filename : filenames) { // para cada ficheiro dado no comando
-			    
+			for (String filename : filenames) { 
 			    File file = new File(filename);
 			    if (!file.exists()) {
 			        System.out.println("O arquivo " + filename + " não existe localmente. Ignorando...");
@@ -279,7 +278,7 @@ public class mySNS {
 			
 			socket.close();
     	} catch (Exception e) {
-            System.err.println("Error: " + e.getMessage());
+            System.err.println("Erro: " + e.getMessage());
         }
     	
     }
@@ -343,7 +342,7 @@ public class mySNS {
              for (String filename : filenames) {
               
 
-                 // Send .key file
+                 
                  File keyFile = new File(filename + ".chave_secreta." + userUsername);
                  Long fileSize = keyFile.length();
                  outStream.writeObject(fileSize); 
@@ -381,11 +380,11 @@ public class mySNS {
                  
              }
              outStream.writeObject(-1L); 
-             outStream.flush(); // Flush the stream to ensure all data is sent
+             outStream.flush(); 
 
              
              Boolean acknowledgment = (Boolean) inStream.readObject();
-             System.out.println("Server acknowledgment: " + acknowledgment);
+             //System.out.println("Server acknowledgment: " + acknowledgment);
 
              
              inStream.close();
@@ -393,7 +392,7 @@ public class mySNS {
 
              
              socket.close();
-             System.out.println("Connection closed.");
+             System.out.println("Conexao fechada.");
 
              } catch (IOException | ClassNotFoundException e) {
              System.err.println("Error sending files to the server: " + e.getMessage());
@@ -444,23 +443,23 @@ public class mySNS {
     	FileInputStream fis = new FileInputStream(file);
     	FileOutputStream fos = new FileOutputStream(file+".assinado");
     	FileOutputStream fos2 = new FileOutputStream(file+".assinatura."+doctorUsername);
-    	// Ler a chave privada do médico
+    	
     	FileInputStream kfile1 = new FileInputStream("keystore." + doctorUsername); //ler a keystore
     	KeyStore kstore = KeyStore.getInstance("PKCS12");
     	kstore.load(kfile1, "123456".toCharArray());
     	PrivateKey myPrivateKey = (PrivateKey) kstore.getKey(doctorUsername, "123456".toCharArray());
 
-    	// Criar o objeto para criar a assinatura com a chave privada
+    	
     	Signature s = Signature.getInstance("MD5withRSA");
     	s.initSign(myPrivateKey);
 
 
-    	byte[] b = new byte[1024];  // leitura
+    	byte[] b = new byte[1024];  
     	int i = fis.read(b);
-    	while (i != -1) { // quando for igual a -1 cheguei ao fim do ficheiro
+    	while (i != -1) { 
     		s.update(b, 0, i);
     		fos.write(b,0,i);
-    		i = fis.read(b); // leitura
+    		i = fis.read(b); 
     	}
     	byte[] signature2 = s.sign();
 
@@ -517,7 +516,7 @@ public class mySNS {
             }
             cos.flush();
         }
-        System.out.println("File encrypted: " + filename + " -> " + filename + ".cifrado");
+        System.out.println("Ficheiro cifrado: " + filename + " -> " + filename + ".cifrado");
     }
 
     
@@ -561,7 +560,7 @@ public class mySNS {
                     }
                 }
 
-                // Send .key file
+                
                 File keyFile = new File(filename + ".chave_secreta." + userUsername);
                 fileSize = keyFile.length();
                 outStream.writeObject(fileSize); 
@@ -577,11 +576,11 @@ public class mySNS {
                 
             }
             outStream.writeObject(-1L); 
-            outStream.flush(); // Flush the stream to ensure all data is sent
+            outStream.flush(); 
 
             
             Boolean acknowledgment = (Boolean) inStream.readObject();
-            System.out.println("Server acknowledgment: " + acknowledgment);
+            //System.out.println("Server acknowledgment: " + acknowledgment);
 
             
             inStream.close();
@@ -589,10 +588,10 @@ public class mySNS {
 
             
             socket.close();
-            System.out.println("Connection closed.");
+            System.out.println("Conexao fechada.");
 
             } catch (IOException | ClassNotFoundException e) {
-            System.err.println("Error sending files to the server: " + e.getMessage());
+            System.err.println("Erro ao enviar ficheiros para o servidor: " + e.getMessage());
         }
     }
     private static void sendFilesToServer2(String[] filenames, String userUsername,String doctorUsername) {
@@ -637,11 +636,11 @@ public class mySNS {
                 
             }
             outStream.writeObject(-1L); 
-            outStream.flush(); // Flush the stream to ensure all data is sent
+            outStream.flush(); 
 
             
             Boolean acknowledgment = (Boolean) inStream.readObject();
-            System.out.println("Server acknowledgment: " + acknowledgment);
+            //System.out.println("Server acknowledgment: " + acknowledgment);
 
             
             inStream.close();
@@ -649,10 +648,10 @@ public class mySNS {
 
             
             socket.close();
-            System.out.println("Connection closed.");
+            System.out.println("Conexao fechada.");
 
             } catch (IOException | ClassNotFoundException e) {
-            System.err.println("Error sending files to the server: " + e.getMessage());
+            System.err.println("Erro ao enviar ficheiros para o servidor: " + e.getMessage());
         }
     }
     
@@ -724,7 +723,7 @@ public class mySNS {
     	Pattern padraoC = Pattern.compile("\\.cifrado$");
     	Pattern padraoA = Pattern.compile("\\.assinado$");
     	
-    	for (String filename : filenames) { // para cada ficheiro dado no comando
+    	for (String filename : filenames) { 
 		    
 		    File file = new File(filename);
 		    if (!file.exists()) {
@@ -790,19 +789,19 @@ public class mySNS {
             kfile.read(keyEncoded);
             kfile.close();
 
-            // Obter a chave privada da keystore
-            FileInputStream kfile1 = new FileInputStream("keystore." + userUsername); // ver keystore do user
+            
+            FileInputStream kfile1 = new FileInputStream("keystore." + userUsername); 
             KeyStore kstore = KeyStore.getInstance("PKCS12");
             kstore.load(kfile1, "123456".toCharArray());
 
             Key myPrivateKey = kstore.getKey(userUsername, "123456".toCharArray());
 
-            // Decifrar chave AES com a chave RSA
+            
             Cipher c1 = Cipher.getInstance("RSA");
             c1.init(Cipher.UNWRAP_MODE, myPrivateKey);
             Key aesKey = c1.unwrap(keyEncoded, "AES", Cipher.SECRET_KEY);
 
-            // Decifrar
+            
             Cipher c2 = Cipher.getInstance("AES");
             c2.init(Cipher.DECRYPT_MODE, aesKey);
 
@@ -817,9 +816,9 @@ public class mySNS {
             byte[] buffer = new byte[1024];
 
             int i = cis.read(buffer);
-            while (i != -1) { // Quando for igual a -1 chegou ao fim do ficheiro
-                fos.write(buffer, 0, i); // Escrita do ficheiro lido com o tamanho do que lemos
-                i = fis.read(buffer); // Leitura
+            while (i != -1) { 
+                fos.write(buffer, 0, i); 
+                i = fis.read(buffer); 
             }
 
             fos.close();
@@ -840,7 +839,7 @@ public class mySNS {
      */
     private static void verificaAssinatura(String fileName, String assinatura, String user) {
     	
-        // Ler a assinatura
+        
         byte[] assinaturaOriginal = new byte[256];
         try {
             FileInputStream kfile = new FileInputStream(fileName);
@@ -852,24 +851,24 @@ public class mySNS {
         }
         
         try {
-            // Ler a chave privada
+            
             FileInputStream kfile1 = new FileInputStream("keystore" + user);
             KeyStore kstore = KeyStore.getInstance("PKCS12");
-            kstore.load(kfile1, "123456".toCharArray()); // Lê a keystore com a password dada
+            kstore.load(kfile1, "123456".toCharArray()); 
             Certificate cert = kstore.getCertificate(user);
             
-            // Criar o objeto para criar a assinatura com a chave privada
+            
             Signature s = Signature.getInstance("SHA256withRSA");
             s.initVerify(cert);
                     
-            FileInputStream fis; // Usado para ler o conteudo
+            FileInputStream fis; 
             fis = new FileInputStream(fileName);
             
-            byte[] b = new byte[1024];  // Leitura
+            byte[] b = new byte[1024];  
             int i = fis.read(b);
-            while (i != -1) { // Quando for igual a -1 chegou-se ao fim do ficheiro
+            while (i != -1) { 
                 s.update(b, 0, i);
-                i = fis.read(b); // Leitura
+                i = fis.read(b); 
             }
             
             s.verify(assinaturaOriginal);
