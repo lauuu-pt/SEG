@@ -56,6 +56,7 @@ public class mySNSServer {
                     user = (String) inStream.readObject();
                     bool = (Boolean) inStream.readObject();
                     
+                    
                     System.out.println("Thread: depois de receber  o usuário");
                 } catch (ClassNotFoundException e1) {
                     e1.printStackTrace();
