@@ -151,52 +151,47 @@ public class mySNSServer {
 	                outStream.writeObject(allFilesReceived); 
 	                System.out.println("Transferencia dos ficheiros do servidor reconhecida: " + allFilesReceived);
                 } else {
-                	
-                	int lenFicheiros = (int)inStream.readObject();
-                	System.out.println(lenFicheiros);
-                	
-                	for(int i = 0; i<lenFicheiros; i++){
-                		
-                  		List<File> FilesServer = new ArrayList<File>();
-                		String nomeFicheiro = (String) inStream.readObject();
-                		System.out.println(nomeFicheiro);
-                		var Diretorio  = new File("/home/aluno-di/eclipse-workspace/SEG/src/server", user);
-                		File[] files = Diretorio.listFiles();
-                		
-                		// Itera sobre os arquivos e verifica se começam com o padrão
-                        if (files != null) {
-                            for (File file : files) {
-                                if (file.isFile() && file.getName().startsWith(nomeFicheiro)){
-                                	FilesServer.add(file);
-                                }
+                	System.out.println("aqui");
+                	int fileCount = inStream.readInt();
+                    System.out.println("Client will send " + fileCount + " files.");
+                    List<String> existingFiles = new ArrayList<>();
+                    for (int i = 0; i < fileCount; i++) {
+                        // Read the filename from the client
+                        String filename = (String) inStream.readObject();
+                        System.out.println("Received filename: " + filename);
+                    // Check if any file on the server starts with the received filename
+                        
+                    File serverDirectory = new File("/home/aluno-di/eclipse-workspace/SEG/src/server", user);
+                    File[] filesInDirectory = serverDirectory.listFiles();
+                    if (filesInDirectory != null) {
+                        for (File file : filesInDirectory) {
+                            if (file.isFile() && file.getName().startsWith(filename)) {
+                                existingFiles.add(file.getName());
                             }
-                            
-                            outStream.writeObject(FilesServer.size());
-                            
-                            for(int j =0; j<FilesServer.size(); j++) {
-                            	outStream.writeObject(FilesServer.get(j).getName());
-                            	outStream.writeObject(FilesServer.get(j).length());
-                            	
-                            	 try (BufferedInputStream cifradoFileB = new BufferedInputStream(new FileInputStream(FilesServer.get(j)))) {
-                                     byte[] buffer = new byte[1024];
-                                     int bytesRead;
-                                     while ((bytesRead = cifradoFileB.read(buffer, 0, 1024)) > 0) {
-                                    	 outStream.write(buffer, 0, bytesRead);
-                                     }
-                                 }
-                            }
-                            
-                        } else {
-                        	System.out.println("O caminho especificado não é um diretório.");
                         }
-                	}}}catch (IOException | ClassNotFoundException e) {
+                    }
+                }
+
+                // Inform the client about the filenames that already exist on the server
+                //ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+                int existingFilesSize=existingFiles.size();
+                outStream.writeInt(existingFilesSize); // Send the count of existing files
+                System.out.println(existingFilesSize);
+                outStream.flush();
+
+               
+                    
+                }}catch (IOException e) {
 	                System.err.println("Erro na comunicação com o cliente: " + e.getMessage());
 	                if (e instanceof EOFException) {
 	                    System.err.println("O cliente encerrou abruptamente a conexão.");
 	                } else if (e instanceof SocketException) {
 	                    System.err.println("Erro de socket: " + e.getMessage());
 	                }
-	            } finally {
+	            } catch (ClassNotFoundException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} finally {
 	                try {
 	                    socket.close();
 	                    System.out.println("Conexão com o cliente encerrada.");

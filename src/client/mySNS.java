@@ -78,28 +78,41 @@ public class mySNS {
             String userUsername = args[3];
            
             if (args.length >= 6 && args[4].equals("-g")) {
-                System.out.println("Vale");
-                if (args.length > 6) {
-                
-                    String[] filenames = new String[args.length - 5];
-                    for(int i=5;i<filenames.length;i++) {
-                    	System.arraycopy(args, 5, filenames, 0, filenames.length);
+            	ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+            	outStream.writeObject(userUsername);
+            	outStream.writeObject(true);
+            	// Determine the count of files to be sent
+                int fileCount = 0;
+
+                // Increment file count for each valid file
+                for (int i = 5; i < args.length; i++) {
+                    File file = new File(args[i]);
+                    if (file.exists()) {
+                        fileCount++;
+                        
+                        
                     }
-                    for (String filename : filenames) {
-                        System.out.println("Filename: " + filename);
-                        try {
-                        	System.out.println(filenames);
-							getFilesFromServer(new String[] { filename }, userUsername);
-						} catch (ClassNotFoundException e) {
-							e.printStackTrace();
-						}
+                }
+                System.out.println("n ficheiros a pedir: "+fileCount);
+                // Send the count of files to the server
+               
+                outStream.writeInt(fileCount);
+                outStream.flush();
+                for (int i = 5; i < args.length; i++) {
+                    File file = new File(args[i]);
+                    if (file.exists()) {
+                        // Send the filename to the server
+                        outStream.writeObject(file.getName());
+                        outStream.flush();
                     }
-                } else if (args.length == 6) {
-                    String filename = args[5];
-                    System.out.println("Filename1: " + filename);
-                    getFilesFromServer(new String[] {filename}, userUsername);
-                } else {
-                    System.out.println("No filenames provided.");
+                }
+                ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+                int existingFileCount ;
+                try {
+                    existingFileCount = inStream.readInt();
+                    System.out.println("Server has " + existingFileCount + " existing files.");
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
             }
 
@@ -151,9 +164,7 @@ public class mySNS {
             System.err.println("Erro ao ligar ao servidor. Edereco desconhecido: " + hostname);
         } catch (IOException e) {
             System.err.println("Erro ao ligar ao servidor: " + e.getMessage());
-        } catch (ClassNotFoundException e) {
-			e.printStackTrace();
-		}
+        }
     }
 
     
