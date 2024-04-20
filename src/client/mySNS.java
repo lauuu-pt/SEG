@@ -79,6 +79,7 @@ public class mySNS {
            
             if (args.length >= 6 && args[4].equals("-g")) {
             	ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+            	ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
             	outStream.writeObject(userUsername);
             	outStream.writeObject(true);
             	// Determine the count of files to be sent
@@ -87,11 +88,11 @@ public class mySNS {
                 // Increment file count for each valid file
                 for (int i = 5; i < args.length; i++) {
                     File file = new File(args[i]);
-                    if (file.exists()) {
-                        fileCount++;
+                    
+                    fileCount++;
                         
                         
-                    }
+                    
                 }
                 System.out.println("n ficheiros a pedir: "+fileCount);
                 // Send the count of files to the server
@@ -100,21 +101,51 @@ public class mySNS {
                 outStream.flush();
                 for (int i = 5; i < args.length; i++) {
                     File file = new File(args[i]);
-                    if (file.exists()) {
+                    
                         // Send the filename to the server
                         outStream.writeObject(file.getName());
                         outStream.flush();
-                    }
+                    
                 }
-                ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
-                int existingFileCount ;
-                try {
-                    existingFileCount = inStream.readInt();
+                
+               
+               
+                    int existingFileCount = (int) inStream.readObject();
                     System.out.println("Server has " + existingFileCount + " existing files.");
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
+                
+                
+                
+                for(int j =0; j<existingFileCount; j++) {
+                	String filename = (String) inStream.readObject();
+                	long fileSize = (long) inStream.readObject();
+                	try (FileOutputStream fos = new FileOutputStream(filename)){
+                		byte[] buffer = new byte[1024];
+                        int bytesRead;
+                        long total=0;
+                        while (total<fileSize && (bytesRead=inStream.read(buffer)) != -1) {
+                       	 	fos.write(buffer,0,bytesRead);
+                       	 	total+=bytesRead;
+                        }
+                        System.out.println("ficheiro "+filename+" recebido");
+                        
+                    }
+                	String[] lista =filename.split("\\.");
+                	String extensao = lista[lista.length-1];
+                	
+                	if(extensao.equals("cifrado")) {
+                		String chave = lista[0]+"."+lista[1]+".chave_secreta.";
+                		
+                		decifraFile(filename,chave+userUsername,userUsername);
+                		System.out.println("ficheiro"+ filename + " decifrado");
+                	}else if(extensao.equals("assinado")) {
+                		System.out.println("fich");
+                	}else if (extensao.equals("seguro")) {
+                		System.out.println("fi");
+                	}
+                
+                	
+                }}
+            
 
             
              else if (args.length >= 8) {
@@ -164,7 +195,10 @@ public class mySNS {
             System.err.println("Erro ao ligar ao servidor. Edereco desconhecido: " + hostname);
         } catch (IOException e) {
             System.err.println("Erro ao ligar ao servidor: " + e.getMessage());
-        }
+        } catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
     }
 
     
@@ -823,7 +857,7 @@ public class mySNS {
             FileInputStream fis = new FileInputStream(filename);
 
             String[] nome = filename.split("\\.");
-            String nomeCOS = nome[0] + nome[1];
+            String nomeCOS = nome[0] +"."+ nome[1];
 
             FileOutputStream fos = new FileOutputStream(nomeCOS);
             CipherInputStream cis = new CipherInputStream(fis, c2);

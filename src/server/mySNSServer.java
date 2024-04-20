@@ -85,7 +85,7 @@ public class mySNSServer {
                 } catch (ClassNotFoundException e1) {
                     e1.printStackTrace();
                 }
-                outStream.writeObject(true); 
+                //outStream.writeObject(true); 
                 
                 if(!bool) {
 	                
@@ -155,6 +155,7 @@ public class mySNSServer {
                 	int fileCount = inStream.readInt();
                     System.out.println("Client will send " + fileCount + " files.");
                     List<String> existingFiles = new ArrayList<>();
+                    List<File> FilesServer = new ArrayList<File>();
                     for (int i = 0; i < fileCount; i++) {
                         // Read the filename from the client
                         String filename = (String) inStream.readObject();
@@ -165,8 +166,10 @@ public class mySNSServer {
                     File[] filesInDirectory = serverDirectory.listFiles();
                     if (filesInDirectory != null) {
                         for (File file : filesInDirectory) {
-                            if (file.isFile() && file.getName().startsWith(filename)) {
+                            if (file.exists() && file.isFile() && file.getName().startsWith(filename)) {
                                 existingFiles.add(file.getName());
+                                FilesServer.add(file);
+                                
                             }
                         }
                     }
@@ -174,10 +177,27 @@ public class mySNSServer {
 
                 // Inform the client about the filenames that already exist on the server
                 //ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-                int existingFilesSize=existingFiles.size();
-                outStream.writeInt(existingFilesSize); // Send the count of existing files
-                System.out.println(existingFilesSize);
+                System.out.println(existingFiles);
+                System.out.println("no files: "+existingFiles.size());
+                //int existingFilesSize=existingFiles.size();
+                int existingFileSize = existingFiles.size();
+                outStream.writeObject(existingFileSize); // Send the count of existing files
                 outStream.flush();
+                for(int j =0; j<existingFileSize; j++) {
+                	File ficheiro=FilesServer.get(j);
+                	outStream.writeObject(ficheiro.getName());
+                	outStream.writeObject(ficheiro.length());
+                	
+                	 try (BufferedInputStream cifradoFileB = new BufferedInputStream(new FileInputStream(ficheiro))) {
+                         byte[] buffer = new byte[1024];
+                         int bytesRead;
+                         while ((bytesRead = cifradoFileB.read(buffer, 0, 1024)) > 0) {
+                        	 outStream.write(buffer, 0, bytesRead);
+                         }
+                         System.out.println("ficheiro "+ficheiro.getName()+" enviado");
+                     }
+                	 outStream.flush();
+                }
 
                
                     
