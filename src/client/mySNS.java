@@ -16,6 +16,7 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.Signature;
 import java.security.SignatureException;
 import java.security.UnrecoverableKeyException;
@@ -46,8 +47,13 @@ public class mySNS {
     /**
      * Método principal para iniciar o cliente mySNS.
      * @param args Argumentos da linha de comando.
+     * @throws SignatureException 
+     * @throws CertificateException 
+     * @throws NoSuchAlgorithmException 
+     * @throws KeyStoreException 
+     * @throws InvalidKeyException 
      */
-    public static void main(String[] args){
+    public static void main(String[] args) throws InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException{
         if (args.length < 6 || !args[0].equals("-a") ) {
             System.out.println("Uso: java mySNS -a <serverAddress> -m <doctorUsername> -u <userUsername> [-sc <filenames>] [-sa <filenames>] [-se <filenames>] [-g <filenames>]\nou\nUsage: java mySNS -a <serverAddress> -u <username do utente> -g {<filenames>}+");
             return;
@@ -131,23 +137,22 @@ public class mySNS {
                     }
                 	String[] lista =filename.split("\\.");
                 	String extensao = lista[lista.length-1];
-                	
                 	if(extensao.equals("cifrado")) {
                 		String chave = lista[0]+"."+lista[1]+".chave_secreta.";
-                		
                 		decifraFile(filename,chave+userUsername,userUsername);
-                		System.out.println("ficheiro"+ filename + " decifrado");
+                		System.out.println("------------------------------------------------------------------");
+                		
                 	}else if(extensao.equals("assinado")) {
-                		System.out.println("fich");
+                		String chave = lista[0]+"."+lista[1]+".assinatura.";//+ doctor; 
+                		verificaAssinatura(filename, filename); //doctor????????
+                		System.out.println("------------------------------------------------------------------");
+
                 	}else if (extensao.equals("seguro")) {
                 		System.out.println("fi");
                 	}
                 
                 	
-                }}
-            
-
-            
+                }}           
              else if (args.length >= 8) {
             	 String doctorUsername = args[3];
                  String userUsernamee = args[5];
@@ -761,69 +766,6 @@ public class mySNS {
         }
     }
     
-    
-    /**
-	 * Método para realizar operações(descifrar e verificar assinatura) em uma lista de arquivos.
-	 * 
-	 * @param filenames Os nomes dos arquivos nos quais as operações serão realizadas.
-	 */
-    private static void metodog(String[] filenames) {
-	       
-    	Pattern padraoC = Pattern.compile("\\.cifrado$");
-    	Pattern padraoA = Pattern.compile("\\.assinado$");
-    	
-    	for (String filename : filenames) { 
-		    
-		    File file = new File(filename);
-		    if (!file.exists()) {
-		        System.out.println("O ficheiro " + filename + " não existe localmente. Ignorando...");
-		        continue; 
-		    }
-		    
-		    Matcher matcherC = padraoC.matcher(filename);
-		    Matcher matcherA = padraoA.matcher(filename);
-		    
-		    if (matcherC.find()) {
-		    	
-		    	String[] args = filename.split("\\.");
-		    	String userUsername = args[3];
-		    	
-		    	for (String filenameAES : filenames) {
-		    		
-		    		String[] argsAES = filenameAES.split("\\.");
-		    		String AES = argsAES[0] + args[1];
-		    		String extensão = argsAES[2];
-		    		
-		    		if(filename.equals(AES) && !extensão.equals(".cifrado")){		    			
-		    			decifraFile(filename, filenameAES, userUsername);
-		    			break;
-	    			}
-		    	}    	
-		    	
-		    	
-		    } else if (matcherA.find()) {
-		    	
-		    	String[] args = filename.split("\\.");
-		    	String assinatura = args[2];
-		    	
-		    	for (String filenameAss : filenames) {
-		    
-		    		String[] argsAss = filenameAss.split("\\.");
-		    		String nome = argsAss[0] + argsAss[1];
-		    		String extensão = argsAss[2];
-		    		
-		    		if(filename.equals(nome) && !extensão.equals(".assinado")){
-		    			String user = argsAss[3];
-		    			verificaAssinatura(filenameAss, assinatura, user);
-		    			break;
-		    		}
-		    	}	
-		    } 
-    	}
-    }
-    
-    
-    
     /**
      * Método para descriptografar um arquivo usando uma chave AES.
      * 
@@ -863,12 +805,13 @@ public class mySNS {
             CipherInputStream cis = new CipherInputStream(fis, c2);
 
             byte[] buffer = new byte[1024];
-
             int i = cis.read(buffer);
             while (i != -1) { 
                 fos.write(buffer, 0, i); 
-                i = fis.read(buffer); 
+                i = cis.read(buffer); 
             }
+    		System.out.println("ficheiro"+ filename + " decifrado");
+
 
             fos.close();
             cis.close();
@@ -884,47 +827,46 @@ public class mySNS {
      * 
      * @param fileName   Nome do arquivo a ser verificado.
      * @param assinatura Assinatura digital do arquivo.
-     * @param user       Nome de usuário do usuário.
+     * @param doctor       Nome do doctor.
+     * @throws KeyStoreException 
+     * @throws IOException 
+     * @throws CertificateException 
+     * @throws NoSuchAlgorithmException 
+     * @throws InvalidKeyException 
+     * @throws SignatureException 
      */
-    private static void verificaAssinatura(String fileName, String assinatura, String user) {
-    	
-        
-        byte[] assinaturaOriginal = new byte[256];
-        try {
-            FileInputStream kfile = new FileInputStream(fileName);
-            kfile.read(assinaturaOriginal);
-            kfile.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return; 
-        }
-        
-        try {
-            
-            FileInputStream kfile1 = new FileInputStream("keystore" + user);
-            KeyStore kstore = KeyStore.getInstance("PKCS12");
-            kstore.load(kfile1, "123456".toCharArray()); 
-            Certificate cert = kstore.getCertificate(user);
-            
-            
-            Signature s = Signature.getInstance("SHA256withRSA");
-            s.initVerify(cert);
-                    
-            FileInputStream fis; 
-            fis = new FileInputStream(fileName);
-            
-            byte[] b = new byte[1024];  
-            int i = fis.read(b);
-            while (i != -1) { 
-                s.update(b, 0, i);
-                i = fis.read(b); 
-            }
-            
-            s.verify(assinaturaOriginal);
-            fis.close();
-            
-        } catch (IOException | NoSuchAlgorithmException | CertificateException | KeyStoreException | SignatureException | InvalidKeyException e) {
-            e.printStackTrace();
-        }
-    }    
+    private static void verificaAssinatura(String filename, String doctor) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InvalidKeyException, SignatureException {
+   
+		FileInputStream fis = new FileInputStream(filename);
+		
+		long datalen = new File(filename).length() - 256;
+		
+		FileInputStream kis = new FileInputStream("keystore." + doctor);
+		KeyStore kstore = KeyStore.getInstance("PKCS12");
+		kstore.load(kis,"123456".toCharArray());
+		
+		Certificate c = kstore.getCertificate(doctor);
+		PublicKey pubk = c.getPublicKey();
+		
+		Signature s = Signature.getInstance("MD5withRSA");
+		s.initVerify(pubk);
+		
+		byte [] b = new byte[16];
+		int i;
+		
+		while(datalen>0) {
+			i=fis.read(b,0,(int)datalen>16 ? 16 : (int) datalen);
+			s.update(b,0,i);
+			datalen -= i;
+		}
+		byte [] signature  = new byte [256];
+		fis.read(signature);
+		
+		if (s.verify(signature)) {
+			System.out.println("A assinatura do ficheiro: "+ filename + " Foi Verificada: OK");
+		} else {
+			System.out.println("A assinatura do ficheiro: "+ filename + " Foi Verificada: NOK");
+		}
+		fis.close();
+		}   
 }
