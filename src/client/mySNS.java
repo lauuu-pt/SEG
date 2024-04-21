@@ -22,7 +22,9 @@ import java.security.SignatureException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -82,7 +84,9 @@ public class mySNS {
             socket = new Socket(hostname, port);
             System.out.println("Conectado ao servidor.");
             String userUsername = args[3];
-           
+            List<String> ficheirosRecebidos = new ArrayList<>();
+            String doctor;
+            
             if (args.length >= 6 && args[4].equals("-g")) {
             	ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
             	ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
@@ -96,8 +100,7 @@ public class mySNS {
                     File file = new File(args[i]);
                     
                     fileCount++;
-                        
-                        
+                                 
                     
                 }
                 System.out.println("n ficheiros a pedir: "+fileCount);
@@ -112,13 +115,10 @@ public class mySNS {
                         outStream.writeObject(file.getName());
                         outStream.flush();
                     
-                }
-                
-               
+                }                              
                
                     int existingFileCount = (int) inStream.readObject();
                     System.out.println("Server has " + existingFileCount + " existing files.");
-                
                 
                 
                 for(int j =0; j<existingFileCount; j++) {
@@ -133,26 +133,57 @@ public class mySNS {
                        	 	total+=bytesRead;
                         }
                         System.out.println("ficheiro "+filename+" recebido");
+                        ficheirosRecebidos.add(filename);
                         
-                    }
-                	String[] lista =filename.split("\\.");
+                    }                	
+                }                
+                
+                for(String ficheiro : ficheirosRecebidos){
+                	
+                	String[] lista = ficheiro.split("\\.");
                 	String extensao = lista[lista.length-1];
+                	
                 	if(extensao.equals("cifrado")) {
-                		String chave = lista[0]+"."+lista[1]+".chave_secreta.";
-                		decifraFile(filename,chave+userUsername,userUsername);
+                		String chave = lista[0]+"."+lista[1]+".chave_secreta."+ userUsername;
+                		System.out.println("------------------------------------------------------------------");
+                		decifraFile(ficheiro,chave,userUsername);
                 		System.out.println("------------------------------------------------------------------");
                 		
                 	}else if(extensao.equals("assinado")) {
-                		String chave = lista[0]+"."+lista[1]+".assinatura.";//+ doctor; 
-                		verificaAssinatura(filename, filename); //doctor????????
-                		System.out.println("------------------------------------------------------------------");
+                		
+                		for(String teste : ficheirosRecebidos) {
+                			if(teste.startsWith(lista[0]+"."+lista[1]+".assinatura.")) {
+                            	String[] fic = teste.split("\\.");
+                            	doctor = fic[3];
+                        		System.out.println("------------------------------------------------------------------");
+                            	verificaAssinatura(ficheiro, doctor);
+                        		System.out.println("------------------------------------------------------------------");
+                            }
+                		}
 
                 	}else if (extensao.equals("seguro")) {
-                		System.out.println("fi");
+                		System.out.println("------------------------------------------------------------------");
+                		String chave = lista[0]+"."+lista[1]+".chave_secreta."+ userUsername;
+                		
+                		for(String teste : ficheirosRecebidos) {
+                			if(teste.startsWith(lista[0]+"."+lista[1]+".assinatura.")) {
+                            	String[] fic = teste.split("\\.");
+                            	doctor = fic[3];
+                            	decifraFile(ficheiro,chave,userUsername);
+                           
+                            	verificaAssinatura(lista[0]+"."+lista[1], doctor);
+                            	
+                        		System.out.println("------------------------------------------------------------------");
+                        		
+                        		
+
+                            }
+                		}
                 	}
                 
-                	
-                }}           
+                } 
+            
+            }           
              else if (args.length >= 8) {
             	 String doctorUsername = args[3];
                  String userUsernamee = args[5];
@@ -360,11 +391,11 @@ public class mySNS {
             }
 
 
-            File secureFile = new File(filename + ".seguro");
+            /*File secureFile = new File(filename + ".seguro");
             if (secureFile.exists()) {
                 System.out.println("O ficheiro " + secureFile.getName() + " já existe no servidor. Ignorando...");
                 continue; 
-            }
+            }*/
 
             envelopesSeguros(userUsername, filename, doctorUsername);
 
@@ -408,7 +439,7 @@ public class mySNS {
                          outStream.write(buffer, 0, bytesRead);
                      }
                  }
-                 File assinaturaFile = new File(filename+".cifrado.assinatura."+doctorUsername);
+                 File assinaturaFile = new File(filename+".assinatura."+doctorUsername);
                  fileSize = assinaturaFile.length();
                  outStream.writeObject(fileSize); 
                  outStream.writeObject(filename+".assinatura."+doctorUsername); 
@@ -419,7 +450,7 @@ public class mySNS {
                          outStream.write(buffer, 0, bytesRead);
                      }
                  }
-                 File seguroFile = new File(filename+".cifrado.assinado");
+                 File seguroFile = new File(filename+".assinado.cifrado");
                  fileSize = seguroFile.length();
                  outStream.writeObject(fileSize); 
                  outStream.writeObject(filename+".seguro"); 
@@ -465,11 +496,13 @@ public class mySNS {
      private static void envelopesSeguros(String userUsername, String filename, String doctorUsername) {
     	 KeyGenerator kg;
 	     try {
+	    	 
 	         kg = KeyGenerator.getInstance("AES");
 	         kg.init(128);
 	         SecretKey aesKey = kg.generateKey();
 	         try {
-	             encryptFileWithAES(filename, aesKey);
+	        	 signFile(filename, doctorUsername);
+	             encryptFileWithAES(filename+".assinado", aesKey);
 	             try {
 				encryptAESKeyWithRSA(aesKey, userUsername, filename);
 			} catch (NoSuchPaddingException e) {
@@ -479,9 +512,9 @@ public class mySNS {
 				}
 	        } catch (IOException e) {
 	             e.printStackTrace();}
-	         signFile(filename + ".cifrado", doctorUsername);
+	         
 		
-	     } catch (NoSuchAlgorithmException | UnrecoverableKeyException | InvalidKeyException | KeyStoreException | CertificateException | SignatureException | IOException e) {
+	     } catch (NoSuchAlgorithmException | UnrecoverableKeyException | InvalidKeyException | KeyStoreException | CertificateException | SignatureException e) {
 	          e.printStackTrace();}}
 
     
@@ -497,32 +530,33 @@ public class mySNS {
     	FileInputStream fis = new FileInputStream(file);
     	FileOutputStream fos = new FileOutputStream(file+".assinado");
     	FileOutputStream fos2 = new FileOutputStream(file+".assinatura."+doctorUsername);
-    	
     	FileInputStream kfile1 = new FileInputStream("keystore." + doctorUsername); //ler a keystore
+    	
     	KeyStore kstore = KeyStore.getInstance("PKCS12");
     	kstore.load(kfile1, "123456".toCharArray());
-    	PrivateKey myPrivateKey = (PrivateKey) kstore.getKey(doctorUsername, "123456".toCharArray());
+    	Key myPrivateKey = kstore.getKey(doctorUsername, "123456".toCharArray());
 
+    	PrivateKey pk = (PrivateKey) myPrivateKey;
     	
     	Signature s = Signature.getInstance("MD5withRSA");
-    	s.initSign(myPrivateKey);
+    	s.initSign(pk);
 
 
     	byte[] b = new byte[1024];  
     	int i = fis.read(b);
+    	
     	while (i != -1) { 
     		s.update(b, 0, i);
     		fos.write(b,0,i);
     		i = fis.read(b); 
     	}
-    	byte[] signature2 = s.sign();
-
-    	fos.write(s.sign());
-    	fos2.write(signature2);
+    	byte[] signature = s.sign();
+    	fos.write(signature);
+    	fos2.write(signature);
+    	
     	fos.close();
     	fis.close();
-
-
+    	fos2.close();
 
     }
     
@@ -709,63 +743,6 @@ public class mySNS {
         }
     }
     
-    
-    /**
-     * Método para receber arquivos do servidor.
-     * 
-     * @param filenames     Nomes dos arquivos a serem recebidos.
-     * @param userUsername  Nome de usuário do usuário.
-     */
-    private static void getFilesFromServer(String[] filenames, String userUsername) throws ClassNotFoundException {
-    	
-        List<String> filesList = new ArrayList<>();
-    	
-        try (ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-             ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream())) {
-
-            
-        	outStream.writeObject(userUsername);   
-        	outStream.writeObject(true);
-        	
-            for (String filename : filenames) {
-                
-                outStream.writeObject(filename);
-                System.out.println("send file name");
-             
-                String name = (String) inStream.readObject();
-                System.out.println("receive filename");
-
-                
-                long fileSize = (long) inStream.readObject();
-                System.out.println("receive filesize");
-                if (fileSize == -1) {
-                    System.out.println("File " + filename + " not found on the server.");
-                    continue;
-                }
-                
-                if (fileSize > 0) {
-                    try (FileOutputStream fileOutputStream = new FileOutputStream(name)) {
-                        byte[] buffer = new byte[1024];
-                        int bytesRead;
-                        long remainingBytes = fileSize;
-                        while (remainingBytes > 0 && (bytesRead = inStream.read(buffer, 0, (int) Math.min(buffer.length, remainingBytes))) != -1) {
-                            fileOutputStream.write(buffer, 0, bytesRead);
-                            remainingBytes -= bytesRead;
-                        }
-                        System.out.println("Encrypted file " + name + " retrieved from the server.");
-                        filesList.add(name);
-                    }
-                    //metodog(filesList.toArray(new String[0]));
-                    System.out.println("testando");
-                } else {
-                    System.out.println("File size is 0 for file: " + name);
-                }
-            }
-        } catch (IOException e) {
-            System.err.println("Error retrieving files from the server: " + e.getMessage());
-        }
-    }
-    
     /**
      * Método para descriptografar um arquivo usando uma chave AES.
      * 
@@ -820,6 +797,7 @@ public class mySNS {
             e.printStackTrace();
         }
     }	    
+   
     
     
     /**
@@ -827,7 +805,7 @@ public class mySNS {
      * 
      * @param fileName   Nome do arquivo a ser verificado.
      * @param assinatura Assinatura digital do arquivo.
-     * @param doctor       Nome do doctor.
+     * @param doctor     Nome do doctor.
      * @throws KeyStoreException 
      * @throws IOException 
      * @throws CertificateException 
@@ -868,5 +846,50 @@ public class mySNS {
 			System.out.println("A assinatura do ficheiro: "+ filename + " Foi Verificada: NOK");
 		}
 		fis.close();
-		}   
+	}
+
+    /////////////////FOI DO CHATGTP CUIDADO
+    //TEM Q ANALISAR E VER SE DA CERTO P -G DO .SEGURO
+    public static void decryptSignedFile(String fileName,  String signatureFile, String encryptedFile, String decryptedFile, String userUsername) throws Exception {
+        
+    	FileInputStream kis = new FileInputStream("keystore."+userUsername);
+        KeyStore kstore = KeyStore.getInstance("PKCS12");
+        kstore.load(kis, "123456".toCharArray());
+        Key privateKey = kstore.getKey(userUsername, "123456".toCharArray());
+
+        //FileInputStream certFile = new FileInputStream(senderCertFile);
+        Certificate cert =  kstore.getCertificate(userUsername);
+        PublicKey publicKey = cert.getPublicKey();
+
+        Signature sig = Signature.getInstance("MD5withRSA");//ou MD5withRSA
+        sig.initVerify(publicKey);
+
+        FileInputStream sigFile = new FileInputStream(signatureFile);
+        FileInputStream encryptedFileInputStream = new FileInputStream(encryptedFile);
+        byte[] sigBytes = new byte[sigFile.available()];
+        sigFile.read(sigBytes);
+        sig.update(encryptedFileInputStream.readAllBytes());
+
+        boolean isVerified = sig.verify(Base64.getDecoder().decode(new String(sigBytes).trim()));
+        sigFile.close();
+        encryptedFileInputStream.close();
+
+        if (!isVerified) {
+            System.out.println("Assinatura inválida!");
+            return;
+        }
+
+        Cipher cipher = Cipher.getInstance("RSA");
+        cipher.init(Cipher.DECRYPT_MODE, privateKey);
+
+        encryptedFileInputStream = new FileInputStream(encryptedFile);
+        byte[] decryptedBytes = cipher.doFinal(encryptedFileInputStream.readAllBytes());
+        encryptedFileInputStream.close();
+
+        FileOutputStream decryptedFileOutputStream = new FileOutputStream(decryptedFile);
+        decryptedFileOutputStream.write(decryptedBytes);
+        decryptedFileOutputStream.close();
+
+        System.out.println("Arquivo descriptografado com sucesso!");
+    }
 }
