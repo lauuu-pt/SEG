@@ -34,8 +34,10 @@ import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
+import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 public class mySNS {
 	/*Membros do grupo:
@@ -847,49 +849,80 @@ public class mySNS {
 		}
 		fis.close();
 	}
+    public static void escreveMAC(String filename ) throws NoSuchAlgorithmException, InvalidKeyException, IOException {
+		
+  		//Cria fileIn(le o conteudo) e fileOu(escreve o conteudo)
+  		FileInputStream fis = new FileInputStream(filename);
+  		FileOutputStream fos = new FileOutputStream(filename + ".mac");
+  		
+  		//especifica a password
+  		byte [] password = "1234".getBytes();
+  		SecretKeySpec key = new SecretKeySpec(password, "hmacSHA256");
+  		
+  		
+  		//instancia do mac
+  		Mac m = Mac.getInstance("hmacSHA256");
+  		m.init(key);
+  		
+  		byte [] b = new byte[16];
+  		int i = fis.read(b);
+  		
+  		//percorre o ficheiro
+  		while (i != -1) {
+  			m.update(b,0,i);
+  			i = fis.read(b);
+  		}
+  		
+  		//calcula o mac
+  		byte [] mac  = m.doFinal();
+  		
+  		fos.write(mac);
+  		fos.close();
+  		fis.close();
+  		
+  	}
 
-    /////////////////FOI DO CHATGTP CUIDADO
-    //TEM Q ANALISAR E VER SE DA CERTO P -G DO .SEGURO
-    public static void decryptSignedFile(String fileName,  String signatureFile, String encryptedFile, String decryptedFile, String userUsername) throws Exception {
-        
-    	FileInputStream kis = new FileInputStream("keystore."+userUsername);
-        KeyStore kstore = KeyStore.getInstance("PKCS12");
-        kstore.load(kis, "123456".toCharArray());
-        Key privateKey = kstore.getKey(userUsername, "123456".toCharArray());
-
-        //FileInputStream certFile = new FileInputStream(senderCertFile);
-        Certificate cert =  kstore.getCertificate(userUsername);
-        PublicKey publicKey = cert.getPublicKey();
-
-        Signature sig = Signature.getInstance("MD5withRSA");//ou MD5withRSA
-        sig.initVerify(publicKey);
-
-        FileInputStream sigFile = new FileInputStream(signatureFile);
-        FileInputStream encryptedFileInputStream = new FileInputStream(encryptedFile);
-        byte[] sigBytes = new byte[sigFile.available()];
-        sigFile.read(sigBytes);
-        sig.update(encryptedFileInputStream.readAllBytes());
-
-        boolean isVerified = sig.verify(Base64.getDecoder().decode(new String(sigBytes).trim()));
-        sigFile.close();
-        encryptedFileInputStream.close();
-
-        if (!isVerified) {
-            System.out.println("Assinatura inválida!");
-            return;
-        }
-
-        Cipher cipher = Cipher.getInstance("RSA");
-        cipher.init(Cipher.DECRYPT_MODE, privateKey);
-
-        encryptedFileInputStream = new FileInputStream(encryptedFile);
-        byte[] decryptedBytes = cipher.doFinal(encryptedFileInputStream.readAllBytes());
-        encryptedFileInputStream.close();
-
-        FileOutputStream decryptedFileOutputStream = new FileOutputStream(decryptedFile);
-        decryptedFileOutputStream.write(decryptedBytes);
-        decryptedFileOutputStream.close();
-
-        System.out.println("Arquivo descriptografado com sucesso!");
-    }
+public static void verificaMAC(String filename) throws NoSuchAlgorithmException, InvalidKeyException, IOException {
+		
+		try (
+				
+			FileInputStream fis = new FileInputStream(filename);
+			FileInputStream fisMAC = new FileInputStream(filename + ".mac")) {
+			
+			//especifica a password
+			byte [] password = "1234".getBytes();
+			SecretKeySpec key = new SecretKeySpec(password, "hmacSHA256");
+	
+			//instancia do mac
+			Mac m = Mac.getInstance("hmacSHA256");
+			m.init(key);
+			
+			byte [] b = new byte[16];
+			int i = fis.read(b);
+			
+			//percorre o ficheiro
+			while (i != -1) {
+				m.update(b,0,i);
+				i = fis.read(b);
+			}
+			
+			//calcula o mac
+			byte [] mac  = m.doFinal();
+					
+			byte [] macToBeVerified = new byte[fisMAC.available()];
+			fisMAC.read(macToBeVerified);
+			
+			String s_mac = Base64.getEncoder().encodeToString(mac);	
+			String s_macToBeVerified = Base64.getEncoder().encodeToString(macToBeVerified);
+			
+			if (s_mac.equals(s_macToBeVerified)) {
+				System.out.println("OK");
+			} else {
+				System.out.println("NOK");
+			}
+			
+		} catch (IllegalStateException e) {
+			e.printStackTrace();
+		}
+		}
 }
