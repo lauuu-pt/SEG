@@ -169,9 +169,13 @@ public class mySNS {
                 			if(teste.startsWith(lista[0]+"."+lista[1]+".assinatura.")) {
                             	String[] fic = teste.split("\\.");
                             	doctor = fic[3];
-                            	verificaAssinatura(ficheiro, doctor);
+                            	decifraFile(ficheiro,chave,userUsername);
+                           
+                            	verificaAssinatura(lista[0]+"."+lista[1], doctor);
+                            	
                         		System.out.println("------------------------------------------------------------------");
-                        		decifraFile(ficheiro,chave,userUsername);
+                        		
+                        		
 
                             }
                 		}
@@ -387,11 +391,11 @@ public class mySNS {
             }
 
 
-            File secureFile = new File(filename + ".seguro");
+            /*File secureFile = new File(filename + ".seguro");
             if (secureFile.exists()) {
                 System.out.println("O ficheiro " + secureFile.getName() + " já existe no servidor. Ignorando...");
                 continue; 
-            }
+            }*/
 
             envelopesSeguros(userUsername, filename, doctorUsername);
 
@@ -435,7 +439,7 @@ public class mySNS {
                          outStream.write(buffer, 0, bytesRead);
                      }
                  }
-                 File assinaturaFile = new File(filename+".cifrado.assinatura."+doctorUsername);
+                 File assinaturaFile = new File(filename+".assinatura."+doctorUsername);
                  fileSize = assinaturaFile.length();
                  outStream.writeObject(fileSize); 
                  outStream.writeObject(filename+".assinatura."+doctorUsername); 
@@ -446,7 +450,7 @@ public class mySNS {
                          outStream.write(buffer, 0, bytesRead);
                      }
                  }
-                 File seguroFile = new File(filename+".cifrado.assinado");
+                 File seguroFile = new File(filename+".assinado.cifrado");
                  fileSize = seguroFile.length();
                  outStream.writeObject(fileSize); 
                  outStream.writeObject(filename+".seguro"); 
@@ -492,11 +496,13 @@ public class mySNS {
      private static void envelopesSeguros(String userUsername, String filename, String doctorUsername) {
     	 KeyGenerator kg;
 	     try {
+	    	 
 	         kg = KeyGenerator.getInstance("AES");
 	         kg.init(128);
 	         SecretKey aesKey = kg.generateKey();
 	         try {
-	             encryptFileWithAES(filename, aesKey);
+	        	 signFile(filename, doctorUsername);
+	             encryptFileWithAES(filename+".assinado", aesKey);
 	             try {
 				encryptAESKeyWithRSA(aesKey, userUsername, filename);
 			} catch (NoSuchPaddingException e) {
@@ -506,9 +512,9 @@ public class mySNS {
 				}
 	        } catch (IOException e) {
 	             e.printStackTrace();}
-	         signFile(filename + ".cifrado", doctorUsername);
+	         
 		
-	     } catch (NoSuchAlgorithmException | UnrecoverableKeyException | InvalidKeyException | KeyStoreException | CertificateException | SignatureException | IOException e) {
+	     } catch (NoSuchAlgorithmException | UnrecoverableKeyException | InvalidKeyException | KeyStoreException | CertificateException | SignatureException e) {
 	          e.printStackTrace();}}
 
     
@@ -791,6 +797,7 @@ public class mySNS {
             e.printStackTrace();
         }
     }	    
+   
     
     
     /**
@@ -843,18 +850,18 @@ public class mySNS {
 
     /////////////////FOI DO CHATGTP CUIDADO
     //TEM Q ANALISAR E VER SE DA CERTO P -G DO .SEGURO
-    public static void decryptSignedFile(String fileName, String keyStoreFile, String keyStorePassword, String senderCertFile, String signatureFile, String encryptedFile, String decryptedFile) throws Exception {
+    public static void decryptSignedFile(String fileName,  String signatureFile, String encryptedFile, String decryptedFile, String userUsername) throws Exception {
         
-    	FileInputStream kis = new FileInputStream(keyStoreFile);
+    	FileInputStream kis = new FileInputStream("keystore."+userUsername);
         KeyStore kstore = KeyStore.getInstance("PKCS12");
-        kstore.load(kis, keyStorePassword.toCharArray());
-        PrivateKey privateKey = (PrivateKey) kstore.getKey(keyStorePassword, keyStorePassword.toCharArray());
+        kstore.load(kis, "123456".toCharArray());
+        Key privateKey = kstore.getKey(userUsername, "123456".toCharArray());
 
-        FileInputStream certFile = new FileInputStream(senderCertFile);
-        Certificate cert = CertificateFactory.getInstance("X.509").generateCertificate(certFile);
+        //FileInputStream certFile = new FileInputStream(senderCertFile);
+        Certificate cert =  kstore.getCertificate(userUsername);
         PublicKey publicKey = cert.getPublicKey();
 
-        Signature sig = Signature.getInstance("SHA256withRSA");
+        Signature sig = Signature.getInstance("MD5withRSA");//ou MD5withRSA
         sig.initVerify(publicKey);
 
         FileInputStream sigFile = new FileInputStream(signatureFile);
