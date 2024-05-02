@@ -24,6 +24,7 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -209,21 +210,92 @@ public class mySNS {
                 String[] filenames = new String[args.length - 7];
                 System.arraycopy(args, 7, filenames, 0, filenames.length);
                 switch (command) {
-                    case "-sc":
-                        metodosc(hostname, port, filenames, doctorUsername, userUsernamee);
-                        deleteFiles(filenames, userUsernamee, doctorUsername);
-                        break;
-                    case "-sa":
-                        metodosa(hostname, port, filenames, doctorUsername, userUsernamee);
-                        deleteFiles(filenames, userUsernamee, doctorUsername);
-                        break;
-                    case "-se":
-                        metodose(hostname, port, filenames, doctorUsername, userUsernamee);
-                        deleteFiles(filenames, userUsernamee, doctorUsername);
-                        break;
-                    default:
-                        System.out.println("Comando invalido: " + command);
-                }
+                	
+	                    case "-sc":
+	                    	try (ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+	                                ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream())) {
+	                    	
+	                    	outStream.writeObject(userUsernamee);
+	                    	
+	                        
+	                        outStream.writeObject(false);
+	                    	 int fileCount = 0;
+	
+	                         // Increment file count for each valid file
+	                         for (int i = 7; i < args.length; i++) {
+	                             File file = new File(args[i]);
+	                             
+	                             fileCount++;
+	                                          
+	                             
+	                         }
+	                         System.out.println("Nº de  ficheiros a pedir: "+fileCount);
+	                         // Send the count of files to the server
+	                        
+	                         outStream.writeInt(fileCount);
+	                         outStream.flush();
+	                         for (int i = 7; i < args.length; i++) {
+	                             File file = new File(args[i]);
+	                             
+	                                 // Send the filename to the server
+	                                 outStream.writeObject(file.getName());
+	                                 outStream.flush();
+	                             
+	                         }                              
+	                        
+	                             int existingFileCount = (int) inStream.readObject();
+	                             System.out.println("Server has " + existingFileCount + " existing files.");
+	                          // Read each existing filename from the server
+	                             List<String> existingFileNames = new ArrayList<>();
+	                             for (int i = 0; i < existingFileCount; i++) {
+	                                 String existingFileName = (String) inStream.readObject();
+	                                 existingFileNames.add(existingFileName);
+	                             }
+	                             List<String> existingPrefixes = new ArrayList<>();
+	                             for (String existingFileName : existingFileNames) {
+	                                 // Split the existing filename by dots
+	                                 String[] parts = existingFileName.split("\\.");
+
+	                                 // If the filename contains at least two dots
+	                                 if (parts.length >= 3) {
+	                                     // Add the part before the first dot and the part before the second dot to the list
+	                                     existingPrefixes.add(parts[0] + "." + parts[1]);
+	                                 } else if (parts.length == 2) {
+	                                     // If the filename contains only one dot, add the part before the first dot to the list
+	                                     existingPrefixes.add(parts[0]);
+	                                 } else {
+	                                     // If the filename doesn't contain any dots, add the entire filename to the list
+	                                     existingPrefixes.add(existingFileName);
+	                                 }
+	                             }
+
+	                             
+
+
+	                             // Remove existing filenames from the list of filenames to send
+	                             List<String> filenamesToSend = new ArrayList<>(Arrays.asList(filenames));
+	                             filenamesToSend.removeAll(existingPrefixes);
+	                             System.out.println("Ficheiros que já existem no servidor:"+existingPrefixes);
+	                             System.out.println("Ficheiros a enviar"+filenamesToSend);
+	                          // Convert List<String> to String[]
+	                             String[] filenamess = filenamesToSend.toArray(new String[0]);
+
+	                         
+	
+	                        metodosc(outStream, inStream, hostname, port, filenamess, doctorUsername, userUsernamee);
+	                        deleteFiles(filenames, userUsernamee, doctorUsername);
+	                        break;}
+	                    case "-sa":
+	                        metodosa(hostname, port, filenames, doctorUsername, userUsernamee);
+	                        deleteFiles(filenames, userUsernamee, doctorUsername);
+	                        break;
+	                    case "-se":
+	                        metodose(hostname, port, filenames, doctorUsername, userUsernamee);
+	                        deleteFiles(filenames, userUsernamee, doctorUsername);
+	                        break;
+	                    default:
+	                        System.out.println("Comando invalido: " + command);
+	                }
             } else {
                 System.out.println("Comando invalido ou combinacao invalida");
             }
@@ -279,6 +351,7 @@ public class mySNS {
     
     /**
      * Método para executar o comando "-sc" (cifra o ficheiro) no cliente mySNS.
+     * @param outStream 
      * 
      * @param hostname       Nome do host do servidor.
      * @param port           Número da porta do servidor.
@@ -286,7 +359,7 @@ public class mySNS {
      * @param doctorUsername Nome de usuário do médico.
      * @param userUsername   Nome de usuário do usuário.
      */
-    private static void metodosc(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
+    private static void metodosc(ObjectOutputStream outStream,ObjectInputStream inStream, String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
         List<String> encryptedFiles = new ArrayList<>();
         try {
         	
@@ -297,19 +370,7 @@ public class mySNS {
                     continue; 
                 }
 
-                /*
-                File cifradoFile = new File(filename + ".cifrado");
-                if (cifradoFile.exists()) {
-                    System.out.println("File " + cifradoFile.getName() + " already exists on the server. Skipping...");
-                    continue; 
-                }
                 
-                
-                File keyFile = new File(filename + ".chave_secreta." + userUsername);
-                if (keyFile.exists()) {
-                    System.out.println("File " + keyFile.getName() + " already exists on the server. Skipping...");
-                    continue; 
-                }*/
 
                 
                 KeyGenerator kg = KeyGenerator.getInstance("AES");
@@ -322,7 +383,7 @@ public class mySNS {
                 encryptedFiles.add(filename);
                 
             }
-            sendFilesToServer(encryptedFiles.toArray(new String[0]), userUsername);
+            sendFilesToServer(outStream, inStream, encryptedFiles.toArray(new String[0]), userUsername);
             socket.close();
             
 
@@ -626,15 +687,13 @@ public class mySNS {
         }
     }
 
-    private static void sendFilesToServer(String[] filenames, String userUsername) {
+    private static void sendFilesToServer(ObjectOutputStream outStream,ObjectInputStream inStream, String[] filenames, String userUsername) {
         try {
-            ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-            ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+            //ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+            //ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
             
             
-            outStream.writeObject(userUsername);
             
-            outStream.writeObject(false);
      
             for (String filename : filenames) {
              

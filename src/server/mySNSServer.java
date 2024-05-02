@@ -104,7 +104,42 @@ public class mySNSServer {
 	                }
 	
 	                boolean allFilesReceived = true; 
-	
+	            	int fileCount = inStream.readInt();
+                    System.out.println("Client will send " + fileCount + " files.");
+                    List<String> existingFiles = new ArrayList<>();
+                    List<File> FilesServer = new ArrayList<File>();
+                    for (int i = 0; i < fileCount; i++) {
+                        // Read the filename from the client
+                        String filename = (String) inStream.readObject();
+                        System.out.println("Received filename: " + filename);
+                    // Check if any file on the server starts with the received filename
+                        
+                    File serverDirectory = new File("/home/aluno-di/eclipse-workspace/SEG/src/server", user);
+                    File[] filesInDirectory = serverDirectory.listFiles();
+                    if (filesInDirectory != null) {
+                        for (File file : filesInDirectory) {
+                            if (file.exists() && file.isFile() && file.getName().startsWith(filename)) {
+                                existingFiles.add(file.getName());
+                                FilesServer.add(file);
+                                
+                            }
+                        }
+                    }
+                }
+
+                // Inform the client about the filenames that already exist on the server
+                //ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+                System.out.println(existingFiles);
+                System.out.println("no files: "+existingFiles.size());
+                //int existingFilesSize=existingFiles.size();
+                int existingFileSize = existingFiles.size();
+                outStream.writeObject(existingFileSize); // Send the count of existing files
+                outStream.flush();
+                for(int j =0; j<existingFileSize; j++) {
+                	File ficheiro=FilesServer.get(j);
+                	outStream.writeObject(ficheiro.getName());
+	                
+                }
 	                
 	                try {
 	                	
