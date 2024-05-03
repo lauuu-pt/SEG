@@ -221,7 +221,7 @@ public class mySNS {
 	                        outStream.writeObject(false);
 	                    	 int fileCount = 0;
 	
-	                         // Increment file count for each valid file
+	                        
 	                         for (int i = 7; i < args.length; i++) {
 	                             File file = new File(args[i]);
 	                             
@@ -230,14 +230,14 @@ public class mySNS {
 	                             
 	                         }
 	                         System.out.println("Nº de  ficheiros a pedir: "+fileCount);
-	                         // Send the count of files to the server
+	                         
 	                        
 	                         outStream.writeInt(fileCount);
 	                         outStream.flush();
 	                         for (int i = 7; i < args.length; i++) {
 	                             File file = new File(args[i]);
 	                             
-	                                 // Send the filename to the server
+	                                 
 	                                 outStream.writeObject(file.getName());
 	                                 outStream.flush();
 	                             
@@ -245,7 +245,7 @@ public class mySNS {
 	                        
 	                             int existingFileCount = (int) inStream.readObject();
 	                             System.out.println("Server has " + existingFileCount + " existing files.");
-	                          // Read each existing filename from the server
+	                          
 	                             List<String> existingFileNames = new ArrayList<>();
 	                             for (int i = 0; i < existingFileCount; i++) {
 	                                 String existingFileName = (String) inStream.readObject();
@@ -253,18 +253,18 @@ public class mySNS {
 	                             }
 	                             List<String> existingPrefixes = new ArrayList<>();
 	                             for (String existingFileName : existingFileNames) {
-	                                 // Split the existing filename by dots
+	                                 
 	                                 String[] parts = existingFileName.split("\\.");
 
-	                                 // If the filename contains at least two dots
+	                                 
 	                                 if (parts.length >= 3) {
-	                                     // Add the part before the first dot and the part before the second dot to the list
+	                                    
 	                                     existingPrefixes.add(parts[0] + "." + parts[1]);
 	                                 } else if (parts.length == 2) {
-	                                     // If the filename contains only one dot, add the part before the first dot to the list
+	                                     
 	                                     existingPrefixes.add(parts[0]);
 	                                 } else {
-	                                     // If the filename doesn't contain any dots, add the entire filename to the list
+	                                 
 	                                     existingPrefixes.add(existingFileName);
 	                                 }
 	                             }
@@ -272,12 +272,12 @@ public class mySNS {
 	                             
 
 
-	                             // Remove existing filenames from the list of filenames to send
+	                             
 	                             List<String> filenamesToSend = new ArrayList<>(Arrays.asList(filenames));
 	                             filenamesToSend.removeAll(existingPrefixes);
 	                             System.out.println("Ficheiros que já existem no servidor:"+existingPrefixes);
 	                             System.out.println("Ficheiros a enviar"+filenamesToSend);
-	                          // Convert List<String> to String[]
+	                        
 	                             String[] filenamess = filenamesToSend.toArray(new String[0]);
 
 	                         
@@ -286,13 +286,153 @@ public class mySNS {
 	                        deleteFiles(filenames, userUsernamee, doctorUsername);
 	                        break;}
 	                    case "-sa":
-	                        metodosa(hostname, port, filenames, doctorUsername, userUsernamee);
+	                    	try (ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+	                                ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream())) {
+	                    	
+	                    	outStream.writeObject(userUsernamee);
+	                    	
+	                        
+	                        outStream.writeObject(false);
+	                    	 int fileCount = 0;
+	
+	                         
+	                         for (int i = 7; i < args.length; i++) {
+	                             File file = new File(args[i]);
+	                             
+	                             fileCount++;
+	                                          
+	                             
+	                         }
+	                         System.out.println("Nº de  ficheiros a pedir: "+fileCount);
+	                         
+	                        
+	                         outStream.writeInt(fileCount);
+	                         outStream.flush();
+	                         for (int i = 7; i < args.length; i++) {
+	                             File file = new File(args[i]);
+	                             
+	                                
+	                                 outStream.writeObject(file.getName());
+	                                 outStream.flush();
+	                             
+	                         }                              
+	                        
+	                             int existingFileCount = (int) inStream.readObject();
+	                             System.out.println("Server has " + existingFileCount + " existing files.");
+	                         
+	                             List<String> existingFileNames = new ArrayList<>();
+	                             for (int i = 0; i < existingFileCount; i++) {
+	                                 String existingFileName = (String) inStream.readObject();
+	                                 existingFileNames.add(existingFileName);
+	                             }
+	                             List<String> existingPrefixes = new ArrayList<>();
+	                             for (String existingFileName : existingFileNames) {
+	                              
+	                                 String[] parts = existingFileName.split("\\.");
+
+	                                 
+	                                 if (parts.length >= 3) {
+	                                     
+	                                     existingPrefixes.add(parts[0] + "." + parts[1]);
+	                                 } else if (parts.length == 2) {
+	                                     
+	                                     existingPrefixes.add(parts[0]);
+	                                 } else {
+	                                     
+	                                     existingPrefixes.add(existingFileName);
+	                                 }
+	                             }
+
+	                             
+
+
+	                             
+	                             List<String> filenamesToSend = new ArrayList<>(Arrays.asList(filenames));
+	                             filenamesToSend.removeAll(existingPrefixes);
+	                             System.out.println("Ficheiros que já existem no servidor:"+existingPrefixes);
+	                             System.out.println("Ficheiros a enviar"+filenamesToSend);
+	                          
+	                             String[] filenamess = filenamesToSend.toArray(new String[0]);
+
+	                         
+	                             
+	                        metodosa(outStream, inStream,hostname, port, filenamess, doctorUsername, userUsernamee);
 	                        deleteFiles(filenames, userUsernamee, doctorUsername);
-	                        break;
+	                        break;}
 	                    case "-se":
-	                        metodose(hostname, port, filenames, doctorUsername, userUsernamee);
+	                    	try (ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+	                                ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream())) {
+	                    	
+	                    	outStream.writeObject(userUsernamee);
+	                    	
+	                        
+	                        outStream.writeObject(false);
+	                    	 int fileCount = 0;
+	
+	                         
+	                         for (int i = 7; i < args.length; i++) {
+	                             File file = new File(args[i]);
+	                             
+	                             fileCount++;
+	                                          
+	                             
+	                         }
+	                         System.out.println("Nº de  ficheiros a pedir: "+fileCount);
+	                         
+	                        
+	                         outStream.writeInt(fileCount);
+	                         outStream.flush();
+	                         for (int i = 7; i < args.length; i++) {
+	                             File file = new File(args[i]);
+	                             
+	                                
+	                                 outStream.writeObject(file.getName());
+	                                 outStream.flush();
+	                             
+	                         }                              
+	                        
+	                             int existingFileCount = (int) inStream.readObject();
+	                             System.out.println("Server has " + existingFileCount + " existing files.");
+	                         
+	                             List<String> existingFileNames = new ArrayList<>();
+	                             for (int i = 0; i < existingFileCount; i++) {
+	                                 String existingFileName = (String) inStream.readObject();
+	                                 existingFileNames.add(existingFileName);
+	                             }
+	                             List<String> existingPrefixes = new ArrayList<>();
+	                             for (String existingFileName : existingFileNames) {
+	                              
+	                                 String[] parts = existingFileName.split("\\.");
+
+	                                 
+	                                 if (parts.length >= 3) {
+	                                     
+	                                     existingPrefixes.add(parts[0] + "." + parts[1]);
+	                                 } else if (parts.length == 2) {
+	                                     
+	                                     existingPrefixes.add(parts[0]);
+	                                 } else {
+	                                     
+	                                     existingPrefixes.add(existingFileName);
+	                                 }
+	                             }
+
+	                             
+
+
+	                             
+	                             List<String> filenamesToSend = new ArrayList<>(Arrays.asList(filenames));
+	                             filenamesToSend.removeAll(existingPrefixes);
+	                             System.out.println("Ficheiros que já existem no servidor:"+existingPrefixes);
+	                             System.out.println("Ficheiros a enviar"+filenamesToSend);
+	                          
+	                             String[] filenamess = filenamesToSend.toArray(new String[0]);
+
+	                         
+	                             
+	                        metodose(outStream, inStream, hostname, port, filenamess, doctorUsername, userUsernamee);
 	                        deleteFiles(filenames, userUsernamee, doctorUsername);
-	                        break;
+	                        break;}
 	                    default:
 	                        System.out.println("Comando invalido: " + command);
 	                }
@@ -324,7 +464,7 @@ public class mySNS {
    	        File keyFile = new File(filename + ".chave_secreta." + userUsername);
    	        File signedFile = new File(filename + ".assinado");
    	        File signature = new File(filename + ".assinatura." + doctorUsername);
-   	        File cifradoAss = new File(filename + ".cifrado.assinado");
+   	        File cifradoAss = new File(filename + ".assinado.cifrado");
    	        File CifAss = new File(filename + ".cifrado.assinatura." + doctorUsername);
 
    	        if (cifradoFile.exists()) {
@@ -397,6 +537,8 @@ public class mySNS {
     
     /**
      * Método para executar o comando "-sa" (Assina ficheiro)
+     * @param inStream 
+     * @param outStream 
      * 
      * @param hostname       Nome do host do servidor.
      * @param port           Número da porta do servidor.
@@ -404,7 +546,7 @@ public class mySNS {
      * @param doctorUsername Nome de usuário do médico.
      * @param userUsername   Nome de usuário do usuário.
      */
-    private static void metodosa(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
+    private static void metodosa(ObjectOutputStream outStream, ObjectInputStream inStream, String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
     	List<String> signedFiles = new ArrayList<>();
     	try {
 			for (String filename : filenames) { 
@@ -422,7 +564,7 @@ public class mySNS {
 			    System.out.println("O arquivo " + filename + " foi assinado ");
 			    
 			}
-			sendFilesToServer2(signedFiles.toArray(new String[0]), userUsername, doctorUsername); 
+			sendFilesToServer2(outStream, inStream, signedFiles.toArray(new String[0]), userUsername, doctorUsername); 
 			
 			socket.close();
     	} catch (Exception e) {
@@ -434,6 +576,8 @@ public class mySNS {
     
     /**
      * Método para executar o comando "-se" (Cifra e Assina os ficheiros)
+     * @param inStream 
+     * @param outStream 
      * 
      * @param hostname       Nome do host do servidor.
      * @param port           Número da porta do servidor.
@@ -441,7 +585,7 @@ public class mySNS {
      * @param doctorUsername Nome de usuário do médico.
      * @param userUsername   Nome de usuário do usuário.
      */
-    private static void metodose(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
+    private static void metodose(ObjectOutputStream outStream, ObjectInputStream inStream, String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
 
         List<String> seFiles = new ArrayList<>();
 
@@ -467,7 +611,7 @@ public class mySNS {
             
             System.out.println("O ficheiro " + filename + " foi cifrado, assinado e enviado para o servidor com sucesso. ->" + filename+".seguro");
         }
-        sendFilesToServer3(seFiles.toArray(new String[0]), userUsername, doctorUsername);
+        sendFilesToServer3(outStream, inStream, seFiles.toArray(new String[0]), userUsername, doctorUsername);
         try {
 			socket.close();
 		} catch (IOException e) {
@@ -478,15 +622,12 @@ public class mySNS {
 
     
     
-     private static void sendFilesToServer3(String[] filenames, String userUsername, String doctorUsername) {
+     private static void sendFilesToServer3(ObjectOutputStream outStream, ObjectInputStream inStream, String[] filenames, String userUsername, String doctorUsername) {
     	 try {
-             ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-             ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
              
              
-             outStream.writeObject(userUsername);            
-             outStream.writeObject(false);
-                   
+             
+             
              for (String filename : filenames) {
               
 
@@ -743,15 +884,13 @@ public class mySNS {
             System.err.println("Erro ao enviar ficheiros para o servidor: " + e.getMessage());
         }
     }
-    private static void sendFilesToServer2(String[] filenames, String userUsername,String doctorUsername) {
+    private static void sendFilesToServer2(ObjectOutputStream outStream, ObjectInputStream inStream, String[] filenames, String userUsername,String doctorUsername) {
         try {
-            ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-            ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+            //ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+            //ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
             
             
-            outStream.writeObject(userUsername);
-            
-            outStream.writeObject(false);
+          
            
             
             
