@@ -95,10 +95,10 @@ public class mySNS {
             	ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
             	outStream.writeObject(userUsername);
             	outStream.writeObject(true);
-            	// Determine the count of files to be sent
+            	
                 int fileCount = 0;
 
-                // Increment file count for each valid file
+                
                 for (int i = 5; i < args.length; i++) {
                     File file = new File(args[i]);
                     
@@ -107,14 +107,14 @@ public class mySNS {
                     
                 }
                 System.out.println("n ficheiros a pedir: "+fileCount);
-                // Send the count of files to the server
+                
                
                 outStream.writeInt(fileCount);
                 outStream.flush();
                 for (int i = 5; i < args.length; i++) {
                     File file = new File(args[i]);
                     
-                        // Send the filename to the server
+                        
                         outStream.writeObject(file.getName());
                         outStream.flush();
                     
