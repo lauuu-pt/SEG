@@ -17,7 +17,8 @@ On server, on file mySNSServer.java on src/server directory Run As Java Aplicati
 Then:
 Open terminal on this: ~/eclipse-workspace/SEG/src/client$
 and execute the following:
-java mySNS.java -a 127.0.0.1:23456 -m alice -u bob -sc opa.pd cifras2.pdf file2.txt
-java mySNS.java -a 127.0.0.1:23456 -m alice -u bob -sa opa.pd cifras2.pdf file2.txt
-java mySNS.java -a 127.0.0.1:23456 -m alice -u bob -se opa.pd cifras2.pdf file2.txt
-java mySNS.java -a 127.0.0.1:23456 -u bob -g cifras2.pdf file1.txt
+
+	java mySNS.java -a 127.0.0.1:23456 -m alice -u bob -sc opa.pd cifras2.pdf file2.txt
+	java mySNS.java -a 127.0.0.1:23456 -m alice -u bob -sa opa.pd cifras2.pdf file2.txt
+	java mySNS.java -a 127.0.0.1:23456 -m alice -u bob -se opa.pd cifras2.pdf file2.txt
+	java mySNS.java -a 127.0.0.1:23456 -u bob -g cifras2.pdf file1.txt
